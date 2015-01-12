@@ -1,20 +1,27 @@
 #!/usr/bin/env python
 
 """
-Client which uses Globus API
+Client to manage Globus activities (endpoint activation, transfer..)
 """
 
 __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
+import os
+import sys
+from datetime import datetime, timedelta
+
 from abstractclient import AbstractClient
 from globusonline.transfer.api_client import TransferAPIClient
 from globusonline.transfer.api_client import x509_proxy
+from globusonline.transfer.api_client import Transfer
+from globusonline.transfer.api_client import create_client_from_args
 
 
 class ClientGlobus(AbstractClient):
     def __init__(self, auth, http_session=None):
         self.auth = auth
         self.http_session = http_session
+        self.myproxy_username = ''
         self.api = None
 
     def login(self):
@@ -31,38 +38,37 @@ class ClientGlobus(AbstractClient):
                 raise Exception("GSI authentication failed: {0}".format(e))
 
     def endpoint_activation(self, endpoint_name, myproxy_username):
-        """ Method to activate endpoints"""
+        """ Method to activate endpoints (maybe could be an internal method)"""
         user_credential_path = self.auth[3]
         print "==Activating endpoint: {0}==".format(endpoint_name)
 
         # Trying with autoactivation
         print "==Trying autoactivation=="
-        code, message, result = self.api.endpoint_autoactivate(
+        code, message, data = self.api.endpoint_autoactivate(
             endpoint_name)
 
-        if result["code"].startswith("AutoActivated.CachedCredential"):
+        if data["code"].startswith("AutoActivated.CachedCredential"):
             # maybe better to check if doesn't start with AutoActivationFailed
             print "Endpoint {0} activated!".format(endpoint_name)
-            print "result: {0} ({1})".format(result["code"], result["message"])
+            print "result: {0} ({1})".format(data["code"], data["message"])
             return
 
         # Trying with myproxy
         print "==Trying myproxy for {0}==".format(myproxy_username)
-        #status, message, data = self.api.endpoint_autoactivate(
-        #    endpoint_name)
+
         data.set_requirement_value("myproxy", "username",
                                    myproxy_username)
         from getpass import getpass
         passphrase = getpass()
         data.set_requirement_value("myproxy", "passphrase", passphrase)
-        status, message, result = self.api.endpoint_activate(endpoint_name, data)
-        if result["code"].startswith("AutoActivated.CachedCredential"):
+        status, message, data = self.api.endpoint_activate(endpoint_name, data)
+        if data["code"].startswith("AutoActivated.CachedCredential"):
             # maybe better to check if doesn't start with AutoActivationFailed
             print "Endpoint {0} activated!".format(endpoint_name)
-            print "result: {0} ({1})".format(result["code"], result["message"])
+            print "result: {0} ({1})".format(data["code"], data["message"])
             return
 
-        #Trying activating local proxy
+        # Trying activating local proxy
         print "==Local proxy activation=="
         _, _, reqs = self.api.endpoint_activation_requirements(
             endpoint_name, type="delegate_proxy")
@@ -72,129 +78,75 @@ class ClientGlobus(AbstractClient):
                                                   public_key)
         reqs.set_requirement_value("delegate_proxy", "proxy_chain",
                                    proxy)
-        code, message, result = self.api.endpoint_activate(endpoint_name, reqs)
-        if result["code"].startswith("AutoActivated.CachedCredential"):
+        code, message, data = self.api.endpoint_activate(endpoint_name, reqs)
+        if data["code"].startswith("AutoActivated.CachedCredential"):
             # maybe better to check if doesn't start with AutoActivationFailed
             print "Endpoint {0} activated!".format(endpoint_name)
-            print "result: {0} ({1})".format(result["code"], result["message"])
+            print "result: {0} ({1})".format(data["code"], data["message"])
             return
 
+    def put(self, item,  src_endpoint, dst_endpoint, dst_dir):
+        """ To transfer a file from one endpoint to another. Return the Globus
+        task_id"""
+        # Can work without myproxy?!?! Probabilly better to set
+        #  myproxy_username as a class variable
+        print "Please enter your myproxy username (\'none\' if you do not" \
+              " have one)."
+        myproxy_username = sys.stdin.readline().rstrip()
+        self.endpoint_activation(src_endpoint, myproxy_username)
+        self.endpoint_activation(dst_endpoint, myproxy_username)
 
-    """def preferred_activation(self, endpoint_name, myproxy_username):
+        # submit a transfer
+        #oldstdout=sys.stdout
+        #sys.stdout = open(os.devnull,'w')
+        code, message, data = self.api.transfer_submission_id()
+        #sys.stdout = oldstdout # enable output
 
-        #user_credential_path=os.getcwd()+"/credential-"+username+".pem"
-        user_credential_path = self.auth[2]
-        print "==Activating endpoint: {0}==".format(endpoint_name)
-        #api = TransferAPIClient(username, cert_file=user_credential_path)
-        #api.set_debug_print(False, False)
-        try:
-            code, message, data = self.api.endpoint(endpoint_name)
-            if not data["activated"]:
-                try:
-                    print "==Try autoactivation=="
-                    code, message, data = self.api.endpoint_autoactivate(
-                        endpoint_name)
-                except:
-                    print "Cannot autoactivate"
-        except:
-            data = {'activated': "Unavailable"}
-            #pass
+        submission_id = data["value"]
+        #deadline = datetime.utcnow() + timedelta(minutes=10)
+        t = Transfer(submission_id, src_endpoint, dst_endpoint)#, deadline)
+        print "==Transferring {0} from endpoint {1} to endpoint {2}==".format(
+            item, src_endpoint, dst_endpoint)
+        t.add_item(item, os.path.join(dst_dir, os.path.basename(item)))
+        code, reason, data = self.api.transfer(t)
+        task_id = data["task_id"]
+        self.display_task(task_id)
+        return task_id
 
-        #try:
-        #    code, message, data = api.endpoint(endpoint_name)
-        #except:
-        #    data={'activated': "Unavailable"}
+    def display_tasksummary(self):
+        code, reason, data = self.api.tasksummary()
+        print "Task Summary for %s:" % self.api.username
+        for k, v in data.iteritems():
+            if k == "DATA_TYPE":
+                continue
+            print "%3d %s" % (int(v), k.upper().ljust(9))
 
-        if not data["activated"]: # and data["activated"] == "Unavailable":
+    def _print_task(self, data, indent_level=0):
+        indent = " " * indent_level
+        indent += " " * 2
+        for k, v in data.iteritems():
+            if k in ("DATA_TYPE", "LINKS"):
+                continue
+            print indent + "%s: %s" % (k, v)
+
+    def display_task(self, task_id, show_successful_transfers=True):
+        code, reason, data = self.api.task(task_id)
+        print "Task %s:" % task_id
+        self._print_task(data, 0)
+
+        if show_successful_transfers:
             try:
-                if myproxy_username != "none":
-                    print "==Try myproxy for {0}==".format(myproxy_username)
-                    status, message, data = self.api.endpoint_autoactivate(
-                        endpoint_name)
-                    data.set_requirement_value("myproxy", "username",
-                                               myproxy_username)
-                    from getpass import getpass
-                    passphrase = getpass()
-                    data.set_requirement_value("myproxy", "passphrase",
-                                               passphrase)
-                    self.api.endpoint_activate(endpoint_name, data)
-                    #activer=[username,"-c",os.getcwd()+"/credential.pem"]
-                    #api, _ = create_client_from_args(activer)
-                    #conditional_activation(endpoint_name,myproxy_username)
-                    code, message, data = self.api.endpoint(endpoint_name)
-                else:
-                    raise
-            except:
-                print "==Local proxy activation=="
-                _, _, reqs = self.api.endpoint_activation_requirements(
-                    endpoint_name, type="delegate_proxy")
-                #print "endpoint_name",endpoint_name
-                #print reqs
-                public_key = reqs.get_requirement_value("delegate_proxy",
-                                                        "public_key")
-                #print public_key
-                proxy = x509_proxy.create_proxy_from_file(user_credential_path,
-                                                          public_key)
-                #print "proxy"
-                #print proxy
-                reqs.set_requirement_value("delegate_proxy", "proxy_chain",
-                                           proxy)
-                #print reqs
-                result = self.api.endpoint_activate(endpoint_name, reqs)
-                #print result
-                #status, message, data = api.endpoint_autoactivate(endpoint_name)
-                #print data["code"]"""
+                code, reason, data = self.api.task_successful_transfers(task_id)
+                transfer_list = data["DATA"]
+                print "Successful Transfers (src -> dst)"
+                for t in transfer_list:
+                    print " %s -> %s" % (t[u'source_path'],
+                                         t[u'destination_path'])
+            except Exception as e:
+                "Error verifying successful transfer: {0}".format(e)
 
-    def display_activation(self, endpoint_name):
-        """ Display endopoint's informtion"""
-        print "=== Endpoint pre-activation ==="
-        self.display_endpoint(endpoint_name)
 
-        code, reason, result = self.api.endpoint_autoactivate(endpoint_name,
-                                                         if_expires_in=600)
-        if result["code"].startswith("AutoActivationFailed"):
-            print "Auto activation failed, ls and transfers will likely fail!"
-        print "result: %s (%s)" % (result["code"], result["message"])
-        print "=== Endpoint post-activation ==="
-        self.display_endpoint(endpoint_name)
-        print
 
-    def display_endpoint(self, endpoint_name):
-        code, reason, data = self.api.endpoint(endpoint_name)
-        self._print_endpoint(data)
-
-    def _print_endpoint(self, ep):
-        name = ep["canonical_name"]
-        print name
-        if ep["activated"]:
-            print "  activated (expires: %s)" % ep["expire_time"]
-        else:
-            print "  not activated"
-        if ep["public"]:
-            print "  public"
-        else:
-            print "  not public"
-        if ep["myproxy_server"]:
-            print "  default myproxy server: %s" % ep["myproxy_server"]
-        else:
-            print "  no default myproxy server"
-        servers = ep.get("DATA", ())
-        print "  servers:"
-        for s in servers:
-            uri = s["uri"]
-            if not uri:
-                uri = "GC endpoint, no uri available"
-            print "    " + uri,
-            if s["subject"]:
-                print " (%s)" % s["subject"]
-            else:
-                print
-
-    def active_endpoint(self):
-        pass
-
-    def put(self):
-        pass
 
     def get(self):
         pass

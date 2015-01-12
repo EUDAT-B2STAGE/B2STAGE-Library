@@ -60,7 +60,11 @@ def main():
 
     client = Context.createclient(auth)
     client.login()
-    client.endpoint_activation('rmucci00#iRODS-DEV', 'rmucci00')
+    client.endpoint_activation('rmucci00#PLX', 'rmucci00')
+    client.endpoint_activation('rmucci00#DataRepoRepl', 'rmucci00')
+    task_id = client.put('/CINECA01/home/cin_staff/rmucci00/aniTest.avi','rmucci00#DataRepoRepl','rmucci00#PLX', '/~/')
+    client.display_task(task_id)
+
     #client.display_activation('rmucci00#iRODS-DEV')
 
     #status_code, status_message, data = globus.task_list()
