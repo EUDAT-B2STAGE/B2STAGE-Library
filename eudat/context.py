@@ -36,16 +36,16 @@ class Context():
                 globus = ClientGlobus(auth)
                 return globus
             except Exception as e:
-                raise Exception("Error importing ClientGlobus modules: "
-                                "{0}".format(e))
+                raise Exception('Error importing ClientGlobus modules: '
+                                '{0}'.format(e))
         elif auth[0] and auth[1]:
             try:
                 from clienthttp import ClientHTTP
                 http = ClientHTTP(auth)
                 return http
             except Exception as e:
-                raise Exception("Error importing ClientHTTP modules: "
-                                "{0}".format(e))
+                raise Exception('Error importing ClientHTTP modules: '
+                                '{0}'.format(e))
 
 
 def main():
@@ -59,7 +59,9 @@ def main():
     #auth = ['rmucci00', '']
 
     client = Context.createclient(auth)
-    globus = client.login()
+    client.login()
+    client.endpoint_activation('rmucci00#iRODS-DEV', 'rmucci00')
+    #client.display_activation('rmucci00#iRODS-DEV')
 
     #status_code, status_message, data = globus.task_list()
     #print status_code, status_message
