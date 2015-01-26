@@ -8,6 +8,7 @@ __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
 import os
 import sys
+import time
 from datetime import datetime, timedelta
 
 from abstractclient import AbstractClient
@@ -23,6 +24,9 @@ class ClientGlobus(AbstractClient):
         self.http_session = http_session
         self.myproxy_username = ''
         self.api = None
+        if len(self.auth) > 0:
+            self.proxy_name = 'credential-' + self.auth[0] + '.pem'
+
 
     def login(self):
         """ Globus login with username and certificates"""
@@ -39,7 +43,13 @@ class ClientGlobus(AbstractClient):
 
     def endpoint_activation(self, endpoint_name, myproxy_username):
         """ Method to activate endpoints (maybe could be an internal method)"""
-        user_credential_path = self.auth[3]
+        #_, _, data = self.api.endpoint(endpoint_name)
+        #if data["activated"]:
+        #    print "Endpoint {0} already activated!".format(endpoint_name)
+        #    return
+
+        self.check_proxy()
+        user_credential_path = os.path.join(os.getcwd(), self.proxy_name)
         print "==Activating endpoint: {0}==".format(endpoint_name)
 
         # Trying with autoactivation
@@ -47,47 +57,58 @@ class ClientGlobus(AbstractClient):
         code, message, data = self.api.endpoint_autoactivate(
             endpoint_name)
 
-        if data["code"].startswith("AutoActivated.CachedCredential"):
-            # maybe better to check if doesn't start with AutoActivationFailed
+        if not data["code"].startswith("AutoActivationFailed"):
             print "Endpoint {0} activated!".format(endpoint_name)
             print "result: {0} ({1})".format(data["code"], data["message"])
             return
 
         # Trying with myproxy
-        print "==Trying myproxy for {0}==".format(myproxy_username)
+        print "==Trying activating myproxy for {0}==".format(myproxy_username)
 
         data.set_requirement_value("myproxy", "username",
                                    myproxy_username)
         from getpass import getpass
         passphrase = getpass()
         data.set_requirement_value("myproxy", "passphrase", passphrase)
-        status, message, data = self.api.endpoint_activate(endpoint_name, data)
-        if data["code"].startswith("AutoActivated.CachedCredential"):
-            # maybe better to check if doesn't start with AutoActivationFailed
-            print "Endpoint {0} activated!".format(endpoint_name)
-            print "result: {0} ({1})".format(data["code"], data["message"])
-            return
+        try:
+            status, message, data = self.api.endpoint_activate(endpoint_name, data)
+            if not data["code"].startswith("AutoActivationFailed"):
+                print "Endpoint {0} activated!".format(endpoint_name)
+                print "result: {0} ({1})".format(data["code"], data["message"])
+                return
+        except Exception as e:
+            print "Error: {0}".format(e)
+
 
         # Trying activating local proxy
-        print "==Local proxy activation=="
+        print "==Trying local proxy activation=="
         _, _, reqs = self.api.endpoint_activation_requirements(
             endpoint_name, type="delegate_proxy")
-        public_key = reqs.get_requirement_value("delegate_proxy",
-                                                "public_key")
-        proxy = x509_proxy.create_proxy_from_file(user_credential_path,
-                                                  public_key)
-        reqs.set_requirement_value("delegate_proxy", "proxy_chain",
-                                   proxy)
-        code, message, data = self.api.endpoint_activate(endpoint_name, reqs)
-        if data["code"].startswith("AutoActivated.CachedCredential"):
-            # maybe better to check if doesn't start with AutoActivationFailed
-            print "Endpoint {0} activated!".format(endpoint_name)
-            print "result: {0} ({1})".format(data["code"], data["message"])
-            return
+        public_key = reqs.get_requirement_value("delegate_proxy", "public_key")
+        #print public_key
 
-    def put(self, item,  src_endpoint, dst_endpoint, dst_dir):
-        """ To transfer a file from one endpoint to another. Return the Globus
-        task_id"""
+        proxy = x509_proxy.create_proxy_from_file(user_credential_path,
+                                                  public_key, lifetime_hours=3)
+
+        #proxy = x509_proxy.create_proxy_from_file(user_credential_path,
+        #                                          public_key)
+        #print proxy
+        reqs.set_requirement_value("delegate_proxy", "proxy_chain", proxy)
+        try:
+            code, message, data = self.api.endpoint_activate(endpoint_name,
+                                                             reqs)
+            if not data["code"].startswith("AutoActivationFailed"):
+                print "Endpoint {0} activated!".format(endpoint_name)
+                print "result: {0} ({1})".format(data["code"], data["message"])
+                return
+        except Exception as e:
+            print "Error: {0}".format(e)
+            print "Can not active the endpoint {0}".format(endpoint_name)
+
+
+    def put(self, src_endpoint, dst_endpoint, item, dst_dir):
+        """ Transfer a file from one endpoint to another. Return the Globus
+        task_id. Should maybe be called transfer instead of put"""
         # Can work without myproxy?!?! Probabilly better to set
         #  myproxy_username as a class variable
         print "Please enter your myproxy username (\'none\' if you do not" \
@@ -136,7 +157,8 @@ class ClientGlobus(AbstractClient):
 
         if show_successful_transfers:
             try:
-                code, reason, data = self.api.task_successful_transfers(task_id)
+                code, reason, data = self.api.task_successful_transfers(
+                    task_id)
                 transfer_list = data["DATA"]
                 print "Successful Transfers (src -> dst)"
                 for t in transfer_list:
@@ -145,8 +167,35 @@ class ClientGlobus(AbstractClient):
             except Exception as e:
                 "Error verifying successful transfer: {0}".format(e)
 
+    def check_proxy(self):
+        """  Check for a local x509 proxy"""
 
-
+        grid_proxy_init_options = ' -out ' + self.proxy_name
+        #if arguments.cert:
+        #    grid_proxy_init_options=grid_proxy_init_options+' -cert '+arguments.cert
+        #if arguments.key:
+        #    grid_proxy_init_options=grid_proxy_init_options+' -key '+arguments.key
+        #if arguments.certdir:
+        #    grid_proxy_init_options=grid_proxy_init_options+' -certdir '+arguments.certdir
+        #print "grid_proxy_init_options: "+grid_proxy_init_options
+        print
+        print "==Checking for a valid proxy=="
+        if os.path.exists(self.proxy_name):
+            print self.proxy_name + ' exists..'
+            try:
+                ret_val = os.system('grid-proxy-info -exists -f ' + self.proxy_name)
+                if ret_val == 0:
+                    print "Proxy found!"
+                else:
+                    print "Proxy expired. I will try to create a new one.."
+                    os.system('grid-proxy-init' + grid_proxy_init_options)
+            except:
+                print "Proxy invalid. New one, please!"
+                os.system('grid-proxy-init' + grid_proxy_init_options)
+        else:
+            print self.proxy_name + " does not exist. I will try to create it.."
+            os.system('grid-proxy-init' + grid_proxy_init_options)
+        print
 
     def get(self):
         pass
