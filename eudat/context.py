@@ -7,6 +7,9 @@ client (Globus or HTTP) according to the authentication variables passed
 
 __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
+import time
+
+
 
 class Context():
     """Class factory to create an instance of the client"""
@@ -60,10 +63,19 @@ def main():
 
     client = Context.createclient(auth)
     client.login()
-    client.endpoint_activation('rmucci00#PLX', 'rmucci00')
-    client.endpoint_activation('rmucci00#DataRepoRepl', 'rmucci00')
-    task_id = client.put('/CINECA01/home/cin_staff/rmucci00/aniTest.avi','rmucci00#DataRepoRepl','rmucci00#PLX', '/~/')
-    client.display_task(task_id)
+    datasets = client.find_by_metadata(community='aleph')
+    for ds in datasets:
+        for extra in ds:
+            if extra['key'] == 'PID':
+                print extra
+
+    #client.endpoint_activation('cineca#PICO', 'rmucci00')
+    #client.endpoint_activation('rmucci00#FERMI', 'rmucci00')
+    #task_id = client.put('rmucci00#FERMI','cineca#PICO', '/CINECA01/home/cin_staff/rmucci00/aniTest.avi', '/~/')
+    #task_id = client.put('rmucci00#FERMI','cineca#PICO', '/fermi/home/userinternal/rmucci00/aniTest.avi', '/~/')
+
+    #time.sleep(10)
+    #client.display_task(task_id)
 
     #client.display_activation('rmucci00#iRODS-DEV')
 
