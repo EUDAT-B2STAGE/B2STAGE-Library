@@ -17,7 +17,8 @@ def get_dataset_info(ckan_url='eudat-b1.dkrz.de', community='', pattern=[],
     """
     Retrieve dataset info by given search criteria using CKAN portal.
     Returns a list of datasets (each dataset is a list of dictionary
-    composed by key and value).
+    composed by key and value) considering only the datasets containing a pid
+    value.
 
     Retrieve datasets information by given search criteria.
     ckan_url : string
@@ -109,8 +110,8 @@ def __action_api(host, action, data_dict):
     ##print('\t|-- Action %s\n\t|-- Calling %s\n\t|-- Object %s ' %
     # (action,action_url,data_dict))
     try:
-       request = urllib2.Request(action_url)
-       response = urllib2.urlopen(request,data_string)
+        request = urllib2.Request(action_url)
+        response = urllib2.urlopen(request, data_string)
     except urllib2.HTTPError as e:
         print "\t\tError code %s : The server %s couldn't fulfill the action" \
               " %s." % (e.code,host,action)
