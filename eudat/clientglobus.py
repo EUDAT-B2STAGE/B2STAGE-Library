@@ -8,10 +8,12 @@ __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
 import os
 import sys
+import ConfigParser
+from urlparse import urlparse
 import time
 from datetime import datetime, timedelta
 
-from abstractclient import AbstractClient
+from baseclient import AbstractClient
 from globusonline.transfer.api_client import TransferAPIClient
 from globusonline.transfer.api_client import x509_proxy
 from globusonline.transfer.api_client import Transfer
@@ -41,8 +43,14 @@ class ClientGlobus(AbstractClient):
             except Exception as e:
                 raise Exception("GSI authentication failed: {0}".format(e))
 
+
     def endpoint_activation(self, endpoint_name, myproxy_username):
-        """ Method to activate endpoints (maybe could be an internal method)"""
+        """
+        Method to activate endpoints (maybe could be an internal method)
+
+        :param endpoint_name: name of the endpoint to activate
+        :param myproxy_username: myproxy user name
+        """
         #_, _, data = self.api.endpoint(endpoint_name)
         #if data["activated"]:
         #    print "Endpoint {0} already activated!".format(endpoint_name)
@@ -107,8 +115,17 @@ class ClientGlobus(AbstractClient):
 
 
     def put(self, src_endpoint, dst_endpoint, item, dst_dir):
-        """ Transfer a file from one endpoint to another. Return the Globus
-        task_id. Should maybe be called transfer instead of put"""
+        """
+        Transfer a file from one endpoint to another. Return the Globus
+        task_id. Should maybe be called transfer instead of put
+
+        :param src_endpoint: source endpoint name (i.e. user#endpoint)
+        :param dst_endpoint: destination endpoint name (i.e. user#endpoint)
+        :param item: object to be transferred
+        :param dst_dir: destination directory
+        :return: Globus task_id
+        """
+
         # Can work without myproxy?!?! Probabilly better to set
         #  myproxy_username as a class variable
         print "Please enter your myproxy username (\'none\' if you do not" \
@@ -170,7 +187,8 @@ class ClientGlobus(AbstractClient):
                 "Error verifying successful transfer: {0}".format(e)
 
     def check_proxy(self):
-        """  Check for a local x509 proxy"""
+        """  Check for a local x509 prox. If not found or expired it creates
+        a new one."""
 
         grid_proxy_init_options = ' -out ' + self.proxy_name
         #if arguments.cert:
@@ -195,9 +213,44 @@ class ClientGlobus(AbstractClient):
                 print "Proxy invalid. New one, please!"
                 os.system('grid-proxy-init' + grid_proxy_init_options)
         else:
-            print self.proxy_name + " does not exist. I will try to create it.."
+            print self.proxy_name + " does not exist. I'll try to create it.."
             os.system('grid-proxy-init' + grid_proxy_init_options)
         print
 
     def get(self):
         pass
+
+    def get_endpoint_from_URL(self, url):
+        """
+        Read the endpoints.cfg configuration file to discover which endpoint
+        is associated to the url.
+        At the moment it is not possible to discover which is the Globus
+        endpoint that can be used to access a resource. Resolving the PID
+        it is possible to get the physical URL of the resource (iRODS URL),
+        but the information about the endpoint is missing. For now a
+        configuration file can be used to set the association between
+        iRODS URL and Globus endpoint.
+
+        :param url: physical URL of the resource
+        :return: Globus endpoint name
+        """
+        # get minimal url
+        o = urlparse(url)
+        simple_url = o.netloc.rsplit(':')[0]
+
+        config = ConfigParser.SafeConfigParser()
+        config.read(os.path.join(os.getcwd(), "endpoints.cfg"))
+        res = ''
+
+        try:
+            res = config.get('irods_endpoints', simple_url)
+            print "Found endpoint {0} associated to URL {1}".format(res,
+                                                                     simple_url)
+        except ConfigParser.NoOptionError:
+            print "Endpoint not found for URL {0}. You can add more endpoints " \
+                  "editing the config file 'endpoints.cfg'.".format(
+                simple_url)
+
+        return res
+
+
