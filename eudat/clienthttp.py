@@ -6,7 +6,7 @@ Client which uses HTTP API
 
 __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
-from abstractclient import AbstractClient
+from baseclient import AbstractClient
 
 
 class ClientHTTP(AbstractClient):
