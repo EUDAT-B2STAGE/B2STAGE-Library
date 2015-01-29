@@ -63,12 +63,21 @@ def main():
 
     client = Context.createclient(auth)
     client.login()
-    datasets = client.find_by_metadata(community='aleph')
+    datasets = client.get_info_by_metadata(community='aleph')
     for ds in datasets:
-        for extra in ds:
-            if extra['key'] == 'PID':
-                print extra
+        print "Here is the dataset list info: {0}".format(ds)
 
+    pids = client.get_pid_by_metadata(community='aleph')
+    for pid in pids:
+        print "Here is the PID: {0}".format(pid)
+
+    pid = '11100/0beb6af8-cbe5-11e3-a9da-e41f13eb41b2'
+    pids = client.get_url_by_pid(pid)
+    for p in pids:
+        print "Here is the URL for pid {0}: {1}".format(pid, p)
+
+
+    # 3rd party transfer
     #client.endpoint_activation('cineca#PICO', 'rmucci00')
     #client.endpoint_activation('rmucci00#FERMI', 'rmucci00')
     #task_id = client.put('rmucci00#FERMI','cineca#PICO', '/CINECA01/home/cin_staff/rmucci00/aniTest.avi', '/~/')

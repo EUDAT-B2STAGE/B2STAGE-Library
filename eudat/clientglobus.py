@@ -114,8 +114,10 @@ class ClientGlobus(AbstractClient):
         print "Please enter your myproxy username (\'none\' if you do not" \
               " have one)."
         myproxy_username = sys.stdin.readline().rstrip()
-        self.endpoint_activation(src_endpoint, myproxy_username)
-        self.endpoint_activation(dst_endpoint, myproxy_username)
+        if src_endpoint:
+            self.endpoint_activation(src_endpoint, myproxy_username)
+        if dst_endpoint:
+            self.endpoint_activation(dst_endpoint, myproxy_username)
 
         # submit a transfer
         #oldstdout=sys.stdout
