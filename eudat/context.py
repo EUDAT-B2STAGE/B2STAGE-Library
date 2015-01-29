@@ -4,6 +4,7 @@
 Client abstract class: is a factory class which creates an instance of the
 client (Globus or HTTP) according to the authentication variables passed
 """
+from twisted.internet.tcp import _AbortingMixin
 
 __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
@@ -63,6 +64,7 @@ def main():
 
     client = Context.createclient(auth)
     client.login()
+
     datasets = client.get_info_by_metadata(community='aleph')
     for ds in datasets:
         print "Here is the dataset list info: {0}".format(ds)
@@ -76,6 +78,7 @@ def main():
     for p in pids:
         print "Here is the URL for pid {0}: {1}".format(pid, p)
 
+    client.get_endpoint_from_URL('irods://data.repo.cineca.it:1247/CINECA01/home/EUDAT_STAFF/Aleph_Test/ZD4000.59.AL')
 
     # 3rd party transfer
     #client.endpoint_activation('cineca#PICO', 'rmucci00')
