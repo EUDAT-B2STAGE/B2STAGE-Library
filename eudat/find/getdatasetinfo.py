@@ -16,21 +16,15 @@ def get_dataset_info(ckan_url='eudat-b1.dkrz.de', community='', pattern=[],
                      ckan_limit=1000):
     """
     Retrieve dataset info by given search criteria using CKAN portal.
-    Returns a list of datasets (each dataset is a list of dictionary
+
+    :param ckan_url: CKAN portal address, to which search requests are submitted
+        (default is eudat-b1.dkrz.de).
+    :param community: Community where you want to search in.
+    :param pattern: CKAN search pattern, i.e. (a list of) field:value terms.
+    :param ckan_limit: Limit of listed datasets (default is 1000).
+    :return: list of datasets (each dataset is a list of dictionary
     composed by key and value) considering only the datasets containing a pid
     value.
-
-    Retrieve datasets information by given search criteria.
-    ckan_url : string
-        CKAN portal address, to which search requests are submitted
-        (default is eudat-b1.dkrz.de).
-    community : string
-        Community where you want to search in.
-    pattern : list
-        CKAN search pattern, i.e. (a list of) field:value terms.
-    ckan_limit : int
-        Limit of listed datasets (default is 1000).
-
     """
     if (not pattern) and (not community):
         print "[ERROR] Need at least a community or a search pattern as " \
