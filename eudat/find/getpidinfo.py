@@ -15,14 +15,12 @@ import urllib2
 def get_pid_info(pid, handle_url='hdl.handle.net'):
     """
     Resolve pid information accessing the handle resolution system provider
-    using HTTP REST API. Returns a list of dictionary containing PID
-    information.
+    using HTTP REST API.
 
-    pid : string
-        PID that has to be resolved
-    handle_url : string
-        Handle system provider address (default is hdl.handle.net).
-
+    :param pid: PID that has to be resolved
+    :param handle_url: Handle system provider address
+     (default is hdl.handle.net).
+    :return: a list of dictionary containing PID information.
     """
     if not pid:
         print "[ERROR] PID is needed to submit the request.. "
