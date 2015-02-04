@@ -44,17 +44,21 @@ class ClientGlobus(AbstractClient):
                 raise Exception("GSI authentication failed: {0}".format(e))
 
 
-    def endpoint_activation(self, endpoint_name, myproxy_username):
+
+    def endpoint_activation(self, endpoint_name, myproxy_username=''):
         """
         Method to activate endpoints (maybe could be an internal method)
 
         :param endpoint_name: name of the endpoint to activate
         :param myproxy_username: myproxy user name
         """
-        #_, _, data = self.api.endpoint(endpoint_name)
-        #if data["activated"]:
-        #    print "Endpoint {0} already activated!".format(endpoint_name)
-        #    return
+
+        print "==Checking if endpoint {0} is already activated==".format(
+             endpoint_name)
+        _, _, data = self.api.endpoint(endpoint_name)
+        if data["activated"]:
+            print "Endpoint {0} already activated!".format(endpoint_name)
+            return
 
         self.check_proxy()
         user_credential_path = os.path.join(os.getcwd(), self.proxy_name)
@@ -71,15 +75,20 @@ class ClientGlobus(AbstractClient):
             return
 
         # Trying with myproxy
-        print "==Trying activating myproxy for {0}==".format(myproxy_username)
+        print "==Trying activating with myproxy=="
+        print "Please enter your myproxy username (\'none\' if you do not" \
+              " have one)."
+        myproxy_username = sys.stdin.readline().rstrip()
 
-        data.set_requirement_value("myproxy", "username",
-                                   myproxy_username)
+        #data.set_requirement_value("myproxy", "hostname", "myproxy.cineca.it")
+        data.set_requirement_value("myproxy", "username", myproxy_username)
         from getpass import getpass
         passphrase = getpass()
         data.set_requirement_value("myproxy", "passphrase", passphrase)
         try:
-            status, message, data = self.api.endpoint_activate(endpoint_name, data)
+            status, message, data = self.api.endpoint_activate(endpoint_name,
+                                                               data,
+                                                               if_expires_in=600)
             if not data["code"].startswith("AutoActivationFailed"):
                 print "Endpoint {0} activated!".format(endpoint_name)
                 print "result: {0} ({1})".format(data["code"], data["message"])
@@ -87,9 +96,8 @@ class ClientGlobus(AbstractClient):
         except Exception as e:
             print "Error: {0}".format(e)
 
-
-        # Trying activating local proxy
-        print "==Trying local proxy activation=="
+        # Trying activating a delegate proxy
+        print "==Trying delegate proxy activation=="
         _, _, reqs = self.api.endpoint_activation_requirements(
             endpoint_name, type="delegate_proxy")
         public_key = reqs.get_requirement_value("delegate_proxy", "public_key")
@@ -98,13 +106,12 @@ class ClientGlobus(AbstractClient):
         proxy = x509_proxy.create_proxy_from_file(user_credential_path,
                                                   public_key, lifetime_hours=3)
 
-        #proxy = x509_proxy.create_proxy_from_file(user_credential_path,
-        #                                          public_key)
         #print proxy
         reqs.set_requirement_value("delegate_proxy", "proxy_chain", proxy)
         try:
             code, message, data = self.api.endpoint_activate(endpoint_name,
                                                              reqs)
+
             if not data["code"].startswith("AutoActivationFailed"):
                 print "Endpoint {0} activated!".format(endpoint_name)
                 print "result: {0} ({1})".format(data["code"], data["message"])
@@ -112,6 +119,11 @@ class ClientGlobus(AbstractClient):
         except Exception as e:
             print "Error: {0}".format(e)
             print "Can not active the endpoint {0}".format(endpoint_name)
+            if "proxy is not valid until" in str(e):
+                print "This error may be related to clock time skew. " \
+                      "Please, check if your clint clock is server " \
+                      "synchronized and not ahead (you could check with " \
+                      "\"www.time.is\")"
 
 
     def put(self, src_endpoint, dst_endpoint, item, dst_dir):
@@ -126,15 +138,10 @@ class ClientGlobus(AbstractClient):
         :return: Globus task_id
         """
 
-        # Can work without myproxy?!?! Probabilly better to set
-        #  myproxy_username as a class variable
-        print "Please enter your myproxy username (\'none\' if you do not" \
-              " have one)."
-        myproxy_username = sys.stdin.readline().rstrip()
         if src_endpoint:
-            self.endpoint_activation(src_endpoint, myproxy_username)
+            self.endpoint_activation(src_endpoint)
         if dst_endpoint:
-            self.endpoint_activation(dst_endpoint, myproxy_username)
+            self.endpoint_activation(dst_endpoint)
 
         # submit a transfer
         #oldstdout=sys.stdout

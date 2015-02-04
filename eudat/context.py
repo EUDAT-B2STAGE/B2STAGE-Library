@@ -8,7 +8,9 @@ from twisted.internet.tcp import _AbortingMixin
 
 __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
+import os
 import time
+
 
 
 
@@ -59,6 +61,8 @@ def main():
     auth = ['rmucci00', '', '/home/rmucci00/.globus/usercert.pem',
             '/home/rmucci00/.globus/userkey.pem']
 
+
+
     # http client (passing username and pwd)
     #auth = ['rmucci00', '']
 
@@ -83,11 +87,11 @@ def main():
     # 3rd party transfer
     #client.endpoint_activation('cineca#PICO', 'rmucci00')
     #client.endpoint_activation('rmucci00#FERMI', 'rmucci00')
-    #task_id = client.put('rmucci00#FERMI','cineca#PICO', '/CINECA01/home/cin_staff/rmucci00/aniTest.avi', '/~/')
+    task_id = client.put('cineca#DataRepository','rmucci00#pdl', '/CINECA01/home/cin_staff/rmucci00/aniTest.avi', '/~/')
     #task_id = client.put('rmucci00#FERMI','cineca#PICO', '/fermi/home/userinternal/rmucci00/aniTest.avi', '/~/')
 
-    #time.sleep(10)
-    #client.display_task(task_id)
+    time.sleep(10)
+    client.display_task(task_id)
 
     #client.display_activation('rmucci00#iRODS-DEV')
 
