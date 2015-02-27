@@ -13,15 +13,23 @@ from urlparse import urlparse
 import time
 from datetime import datetime, timedelta
 
-from baseclient import AbstractClient
+from baseclient import BaseClient
 from globusonline.transfer.api_client import TransferAPIClient
 from globusonline.transfer.api_client import x509_proxy
 from globusonline.transfer.api_client import Transfer
 from globusonline.transfer.api_client import create_client_from_args
 
 
-class ClientGlobus(AbstractClient):
+class ClientGlobus(BaseClient):
     def __init__(self, auth, http_session=None):
+        """
+        Initialize the Globus session
+
+        :param auth: a list containing username[0], certfile[1] and keyfile[2]
+        :param http_session:
+        """
+        if len(self.auth) < 4: #or !self.auth[0] or !self.auth[2] or !self.auth[3]:
+             print "Can not init session: some parameters are missing.."
         self.auth = auth
         self.http_session = http_session
         self.myproxy_username = ''
@@ -30,18 +38,18 @@ class ClientGlobus(AbstractClient):
             self.proxy_name = 'credential-' + self.auth[0] + '.pem'
 
 
+
     def login(self):
         """ Globus login with username and certificates"""
-        if len(self.auth) > 2 and self.auth[0] and self.auth[2] \
-                and self.auth[3]:
-            try:
-                self.api = TransferAPIClient(username=self.auth[0],
-                                             cert_file=self.auth[2],
-                                             key_file=self.auth[3])
-                self.api.set_debug_print(False, False)
-                print "Successfully logged in with Globus!"
-            except Exception as e:
-                raise Exception("GSI authentication failed: {0}".format(e))
+        try:
+            self.api = TransferAPIClient(username=self.auth[0],
+                                         cert_file=self.auth[2],
+                                         key_file=self.auth[3])
+            self.api.set_debug_print(False, False)
+            print "Successfully logged in with Globus!"
+        except Exception as e:
+            raise Exception("GSI authentication failed: {0}".format(e))
+
 
 
 
