@@ -18,44 +18,78 @@ class Context():
     """Class factory to create an instance of the client"""
 
     @staticmethod
-    def createclient(auth):
+    def createclient(auth=''):
         """Create an instance of the client"""
         # Need to find a smart method to understand which client has to be
         # created
         if len(auth) < 2:
-            print "/'auth/' object must contain at least 2 values"
-
+            print "Credentials not specified: you will be able to use only " \
+                  "services which don't require authentication."
+            try:
+                from baseclient import BaseClient
+                base = BaseClient()
+                return base
+            except Exception as e:
+                raise Exception('Error importing baseclient modules: '
+                                '{0}'.format(e))
         if auth[0]:
             print "user name set as {0}".format(auth[0])
         if auth[1]:
             print "password set as ************".format(auth[1])
 
-        if len(auth) > 2:
-            if auth[2]:
-                print "cert file set as {0}".format(auth[2])
-            if auth[3]:
-                print "key file set as {0}".format(auth[3])
-
-        if len(auth) > 2 and auth[0] and auth[2] and auth[3]:
+        if len(auth) == 4 and auth[0] and auth[2] and auth[3]:
+            print "cert file set as {0}".format(auth[2])
+            print "key file set as {0}".format(auth[3])
             try:
                 from clientglobus import ClientGlobus
                 globus = ClientGlobus(auth)
                 return globus
             except Exception as e:
-                raise Exception('Error importing ClientGlobus modules: '
+                raise Exception('Error importing clientglobus modules: '
                                 '{0}'.format(e))
-        elif auth[0] and auth[1]:
+        elif auth[0] and auth[1] and auth[2]:
+            print "HTTP API server set as {0}".format(auth[2])
             try:
                 from clienthttp import ClientHTTP
                 http = ClientHTTP(auth)
                 return http
             except Exception as e:
-                raise Exception('Error importing ClientHTTP modules: '
+                raise Exception('Error importing clienthttp modules: '
                                 '{0}'.format(e))
+
+        else:
+            print "No client found initialisable with these parameters.."
 
 
 def main():
     """ Main function to test the library """
+
+    # Client without authentication
+    client = Context.createclient()
+    pid = '11100/0beb6af8-cbe5-11e3-a9da-e41f13eb41b2'
+    pids = client.get_url_by_pid(pid)
+    for p in pids:
+        print "Here is the URL for pid {0}: {1}".format(pid, p)
+    exit()
+
+    # HTTP client
+    auth = ['rmucci00', '', 'fec03.cineca.it:8081']
+    client = Context.createclient(auth)
+    client.login()
+    print
+    print "Lisiting folder's element.."
+    print
+    list = client.list('CINECA/home/rmucci00/')
+    for el in list:
+        print el
+
+    print
+    print "Downloading an object.."
+    print
+    client.get('CINECA/home/rmucci00/aniTest.avi', '/tmp/downtest_aniTest.avi')
+
+    exit()
+
 
     # globus client (passing cert paths)
     auth = ['rmucci00', '', '/home/rmucci00/.globus/usercert.pem',
