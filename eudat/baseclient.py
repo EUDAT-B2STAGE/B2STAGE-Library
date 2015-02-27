@@ -8,29 +8,24 @@ Some methods are abstract and implemented in specific classes.
 
 __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
-from abc import ABCMeta, abstractmethod
+
 import find.getdatasetinfo as datasetinfo
 import find.getpidinfo as pidinfo
 
 
-class AbstractClient(object):
-    __metaclass__ = ABCMeta
+class BaseClient(object):
 
-    @abstractmethod
-    def __init__(self, auth, http_session=None):
+    def __init__(self, auth='', http_session=None):
         """ Store the object containing the information needed for
         the authentication """
         pass
 
-    @abstractmethod
     def login(self):
         pass
 
-    @abstractmethod
     def put(self):
         pass
 
-    @abstractmethod
     def get(self):
         pass
 
