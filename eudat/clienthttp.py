@@ -8,8 +8,10 @@ __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
 from baseclient import BaseClient
 import base64
+
 import urllib
 import urllib2
+import json
 from bs4 import BeautifulSoup
 
 
@@ -36,8 +38,43 @@ class ClientHTTP(BaseClient):
         #print "Login answer is --->", answer
 
 
-    def put(self):
-        pass
+    def put(self, local_object, remote_destination):
+        """
+        Upload an object
+
+        :param local_object: path to the local object to be uploaded
+        :param remote_destination: remote destination directory
+
+        """
+
+        url = "http://{host}/{extra}".format(host=self.auth[2],
+                                             extra=remote_destination)
+
+        print
+        print "Uploading {0} to {1}".format(local_object, remote_destination)
+
+        try:
+            #file is read in memory...
+            request = urllib2.Request(url, file(local_object).read(),
+                                      {'Content-Type': 'application/json'})
+
+            base64string = base64.encodestring(
+                    '%s:%s' % (self.auth[0], self.auth[1])).replace('\n', '')
+            request.add_header("Authorization", "Basic %s" % base64string)
+
+            request.get_method = lambda: 'PUT'
+            response = urllib2.urlopen(request)
+        except urllib2.HTTPError as e:
+            self._manageHattpError(e)
+
+        except urllib2.URLError as e:
+            exit('%s' % e.reason)
+        else:
+            assert response.code >= 200
+            #print response.read()
+            print "{0} uploaded in {1}".format(local_object, remote_destination)
+            print
+
 
     def get(self, remote_object, dest_name):
         """
@@ -54,34 +91,47 @@ class ClientHTTP(BaseClient):
         print
         print "Downloading {0} to {1}".format(remote_object,  dest_name)
 
-        request = urllib2.Request(url)
-        base64string = base64.encodestring(
-                '%s:%s' % (self.auth[0], self.auth[1])).replace('\n', '')
-        request.add_header("Authorization", "Basic %s" % base64string)
+        try:
+            request = urllib2.Request(url)
+            base64string = base64.encodestring(
+                    '%s:%s' % (self.auth[0], self.auth[1])).replace('\n', '')
+            request.add_header("Authorization", "Basic %s" % base64string)
 
-        file_name = url.split('/')[-1]
-        u = urllib2.urlopen(request)
-        f = open(dest_name, 'wb')
-        meta = u.info()
-        file_size = int(meta.getheaders("Content-Length")[0])
-        print "Downloading: %s Bytes: %s" % (file_name, file_size)
+            file_name = url.split('/')[-1]
+            response = urllib2.urlopen(request)
+        except urllib2.HTTPError as e:
+            self._manageHattpError(e)
 
-        file_size_dl = 0
-        block_sz = 8192
-        while True:
-            buf = u.read(block_sz)
-            if not buf:
-                break
+        except urllib2.URLError as e:
+            exit('%s' % e.reason)
+        else:
+            assert response.code >= 200
+            #print response.read()
 
-            file_size_dl += len(buf)
+            f = open(dest_name, 'wb')
+            meta = response.info()
+            file_size = int(meta.getheaders("Content-Length")[0])
+            print "Downloading: %s Bytes: %s" % (file_name, file_size)
 
-            f.write(buf)
-            status = r"%10d  [%3.2f%%]" % (file_size_dl, file_size_dl * 100. /
-                                           file_size)
-            #status = status + chr(8)*(len(status)+1)
-            print status
+            file_size_dl = 0
+            block_sz = 8192
+            while True:
+                buf = response.read(block_sz)
+                if not buf:
+                    break
 
-        f.close()
+                file_size_dl += len(buf)
+
+                f.write(buf)
+                status = r"%10d  [%3.2f%%]" % (file_size_dl, file_size_dl * 100. /
+                                               file_size)
+                #status = status + chr(8)*(len(status)+1)
+                print status
+
+            f.close()
+        print
+        print "{0} downloaded in {1}".format(remote_object, dest_name)
+
 
         """response = self.__action_api(self.auth[2], self.auth[0], self.auth[1],
                                      remote_object)
@@ -90,8 +140,7 @@ class ClientHTTP(BaseClient):
         output.write(response)
         output.close()
         """
-        print
-        print "{0} downloaded in {1}".format(remote_object, dest_name)
+
 
 
 
@@ -140,25 +189,37 @@ class ClientHTTP(BaseClient):
 
             response = urllib2.urlopen(request)
         except urllib2.HTTPError as e:
-            print "\t\tError code %s : The server %s responded with an error" \
-                  % (e.code, host)
-            if e.code == 500:
-                print '\t\tError. Something unexpected went wrong during handle ' \
-                      'resolution. (HTTP 500 Internal Server Error)'
-                exit(e.code)
-            elif e.code == 401:
-                print '\t\tThe authentication is invalid. ' \
-                      '(HTTP 401 Unauthorized)'
-                exit(e.code)
-            elif e.code == 403:
-                print '\t\tLack of authorization. (HTTP 403 Fobidden)'
-                exit(e.code)
-            elif e.code == 404:
-                print '\t\tNot Found. (HTTP 404 Not Found)'
-                exit(e.code)
+            self._manageHattpError(e)
 
         except urllib2.URLError as e:
             exit('%s' % e.reason)
-        else:
-            assert response.code >= 200
-            return response.read()
+        #else:
+        assert response.code >= 200
+        return response.read()
+
+    def _manageHattpError(self, e):
+        """
+
+        :param error:
+        :return:
+        """
+
+        print "\t\tError code %s : The server responded with an error" \
+                  % (e.code)
+        if e.code == 500:
+            print '\t\tError. (HTTP 500 Internal Server Error)'
+            exit(e.code)
+        elif e.code == 401:
+            print '\t\tThe authentication is invalid. ' \
+                  '(HTTP 401 Unauthorized)'
+            exit(e.code)
+        elif e.code == 403:
+            print '\t\tLack of authorization. (HTTP 403 Fobidden)'
+            exit(e.code)
+        elif e.code == 404:
+            print '\t\tNot Found. (HTTP 404 Not Found)'
+            exit(e.code)
+        elif e.code == 409:
+            print '\t\tTarget already exists. (HTTP 409 Conflict)'
+            exit(e.code)
+

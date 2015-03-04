@@ -1,17 +1,14 @@
 #!/usr/bin/env python
 
 """
-Client abstract class: is a factory class which creates an instance of the
-client (Globus or HTTP) according to the authentication variables passed
+Factory class which creates an instance of the client (Globus or HTTP)
+according to the authentication variables passed
 """
-from twisted.internet.tcp import _AbortingMixin
 
 __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
 import os
 import time
-
-
 
 
 class Context():
@@ -70,23 +67,33 @@ def main():
     pids = client.get_url_by_pid(pid)
     for p in pids:
         print "Here is the URL for pid {0}: {1}".format(pid, p)
-    exit()
+
 
     # HTTP client
-    auth = ['rmucci00', '', 'fec03.cineca.it:8081']
+    auth = ['rmucci00', 'saturnin0', 'fec03.cineca.it:8081']
     client = Context.createclient(auth)
     client.login()
     print
-    print "Lisiting folder's element.."
+    print "Listing folder's element.."
     print
     list = client.list('CINECA/home/rmucci00/')
     for el in list:
         print el
 
+
+    print
+    print "Uploading an object.."
+    print
+    client.put('/home/rmucci00/uploadTest.txt', 'CINECA/home/rmucci00/http_test.txt')
+
+
+
     print
     print "Downloading an object.."
     print
     client.get('CINECA/home/rmucci00/aniTest.avi', '/tmp/downtest_aniTest.avi')
+
+
 
     exit()
 
