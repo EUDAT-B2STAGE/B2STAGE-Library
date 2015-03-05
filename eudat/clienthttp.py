@@ -7,12 +7,9 @@ Client which uses HTTP API
 __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
 from baseclient import BaseClient
-import base64
-
-import urllib
-import urllib2
-import json
 from bs4 import BeautifulSoup
+import urllib2
+import base64
 
 
 class ClientHTTP(BaseClient):
@@ -31,12 +28,11 @@ class ClientHTTP(BaseClient):
 
     def login(self):
         """ Login to the HTTP EUDAT server.
-        Do I really need a login since I can always pass credentials in each
-        HTTP request? Probably not.. """
+        Do I really need a login methos since I can always pass credentials
+        in each HTTP request? Probably not.. """
 
-        answer = self.__action_api(self.auth[2], self.auth[0], self.auth[1])
-        #print "Login answer is --->", answer
-
+        answer = self.__action_api(self.auth[2])
+        # print "Login answer is --->", answer
 
     def put(self, local_object, remote_destination):
         """
@@ -46,50 +42,50 @@ class ClientHTTP(BaseClient):
         :param remote_destination: remote destination directory
 
         """
-
-        url = "http://{host}/{extra}".format(host=self.auth[2],
-                                             extra=remote_destination)
-
         print
         print "Uploading {0} to {1}".format(local_object, remote_destination)
 
+        fixed_path = self._fix_path(remote_destination)
+        url = "http://{host}/{extra}".format(host=self.auth[2],
+                                             extra=fixed_path)
+
         try:
-            #file is read in memory...
-            request = urllib2.Request(url, file(local_object).read(),
+            # file is read in memory: is there a way to avoid this?
+            request = RequestWithMethod('PUT', url, file(local_object).read(),
                                       {'Content-Type': 'application/json'})
 
             base64string = base64.encodestring(
                     '%s:%s' % (self.auth[0], self.auth[1])).replace('\n', '')
             request.add_header("Authorization", "Basic %s" % base64string)
 
-            request.get_method = lambda: 'PUT'
             response = urllib2.urlopen(request)
         except urllib2.HTTPError as e:
-            self._manageHattpError(e)
+            self._manage_http_error(e)
 
         except urllib2.URLError as e:
             exit('%s' % e.reason)
         else:
             assert response.code >= 200
-            #print response.read()
-            print "{0} uploaded in {1}".format(local_object, remote_destination)
+            # print response.read()
+            print "{0} uploaded in {1}".format(local_object,
+                                               remote_destination)
             print
-
 
     def get(self, remote_object, dest_name):
         """
         Download an object
 
         :param remote_object: path to the object to be downloaded
-        :param dest_dir: local folder in which the object will be stored
+        :param dest_name: local folder in which the object will be stored
 
         """
 
-        url = "http://{host}/{extra}".format(host=self.auth[2],
-                                             extra=remote_object)
-
         print
         print "Downloading {0} to {1}".format(remote_object,  dest_name)
+
+        fixed_path = self._fix_path(remote_object)
+        url = "http://{host}/{extra}".format(host=self.auth[2],
+                                             extra=fixed_path)
 
         try:
             request = urllib2.Request(url)
@@ -100,7 +96,7 @@ class ClientHTTP(BaseClient):
             file_name = url.split('/')[-1]
             response = urllib2.urlopen(request)
         except urllib2.HTTPError as e:
-            self._manageHattpError(e)
+            self._manage_http_error(e)
 
         except urllib2.URLError as e:
             exit('%s' % e.reason)
@@ -125,24 +121,12 @@ class ClientHTTP(BaseClient):
                 f.write(buf)
                 status = r"%10d  [%3.2f%%]" % (file_size_dl, file_size_dl * 100. /
                                                file_size)
-                #status = status + chr(8)*(len(status)+1)
-                print status
+                # status = status + chr(8)*(len(status)+1)
+                # print status
 
             f.close()
         print
         print "{0} downloaded in {1}".format(remote_object, dest_name)
-
-
-        """response = self.__action_api(self.auth[2], self.auth[0], self.auth[1],
-                                     remote_object)
-
-        output = open(dest_name, 'wb')
-        output.write(response)
-        output.close()
-        """
-
-
-
 
     def list(self, path):
         """
@@ -151,8 +135,14 @@ class ClientHTTP(BaseClient):
         :param path: path of the folder to be listed
         :return: list containing the elements of the folder
         """
-        response = self.__action_api(self.auth[2], self.auth[0], self.auth[1],
-                                     path)
+        print
+        print "Listing {0}".format(path)
+
+        fixed_path = self._fix_path(path)
+        url = "http://{host}/{extra}".format(host=self.auth[2],
+                                             extra=fixed_path)
+
+        response = self.__action_api(self.auth[2], fixed_path)
         sub_soup = BeautifulSoup(response)
 
         #sub_soup = soup.find(style="list-style-type: none")
@@ -166,9 +156,43 @@ class ClientHTTP(BaseClient):
 
         return elements
 
+    def delete(self, path_to_resource):
+        """
+        Delete an object or a collection
+
+        :param path_to_resource: path to the object to be deleted
+
+        """
+
+        fixed_path = self._fix_path(path_to_resource)
+        url = "http://{host}/{extra}".format(host=self.auth[2],
+                                             extra=fixed_path)
+
+        print
+        print "Deleting {0}".format(path_to_resource)
+        try:
+            request = RequestWithMethod('DELETE', url)
+
+            base64string = base64.encodestring(
+                    '%s:%s' % (self.auth[0], self.auth[1])).replace('\n', '')
+            request.add_header("Authorization", "Basic %s" % base64string)
+
+            response = urllib2.urlopen(request)
+        except urllib2.HTTPError as e:
+            self._manage_http_error(e)
+
+        except urllib2.URLError as e:
+            exit('%s' % e.reason)
+        else:
+            assert response.code >= 200
+            # print response.read()
+            print "{0} deleted".format(path_to_resource)
+            print
 
 
-    def __action_api(self, host, username, password, extra_param=''):
+
+
+    def __action_api(self, host, extra_param=''):
         """
         Perform the HTTP request
 
@@ -184,12 +208,12 @@ class ClientHTTP(BaseClient):
             request = urllib2.Request(action_url)
 
             base64string = base64.encodestring(
-                '%s:%s' % (username, password)).replace('\n', '')
+                '%s:%s' % (self.auth[0], self.auth[1])).replace('\n', '')
             request.add_header("Authorization", "Basic %s" % base64string)
 
             response = urllib2.urlopen(request)
         except urllib2.HTTPError as e:
-            self._manageHattpError(e)
+            self._manage_http_error(e)
 
         except urllib2.URLError as e:
             exit('%s' % e.reason)
@@ -197,11 +221,12 @@ class ClientHTTP(BaseClient):
         assert response.code >= 200
         return response.read()
 
-    def _manageHattpError(self, e):
+    @staticmethod
+    def _manage_http_error(e):
         """
+        Internal function to manage Http error response
 
-        :param error:
-        :return:
+        :param error: exception received from the Http request
         """
 
         print "\t\tError code %s : The server responded with an error" \
@@ -214,7 +239,7 @@ class ClientHTTP(BaseClient):
                   '(HTTP 401 Unauthorized)'
             exit(e.code)
         elif e.code == 403:
-            print '\t\tLack of authorization. (HTTP 403 Fobidden)'
+            print '\t\tLack of authorization. (HTTP 403 Forbidden)'
             exit(e.code)
         elif e.code == 404:
             print '\t\tNot Found. (HTTP 404 Not Found)'
@@ -223,3 +248,26 @@ class ClientHTTP(BaseClient):
             print '\t\tTarget already exists. (HTTP 409 Conflict)'
             exit(e.code)
 
+    @staticmethod
+    def _fix_path(path):
+        """
+        Remove first '/' if present
+
+        :param path: original path
+        :return: fixed path (without starting '/')
+        """
+        if path.startswith('/'):
+            path = path[1:]
+        return path
+
+
+class RequestWithMethod(urllib2.Request):
+    """
+    Subclassed the urllib2.Request class to explicitly override the method
+    """
+    def __init__(self, method, *args, **kwargs):
+        self._method = method
+        urllib2.Request.__init__(self, *args, **kwargs)
+
+    def get_method(self):
+        return self._method

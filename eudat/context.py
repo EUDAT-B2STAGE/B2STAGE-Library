@@ -70,30 +70,34 @@ def main():
 
 
     # HTTP client
-    auth = ['rmucci00', 'saturnin0', 'fec03.cineca.it:8081']
+    auth = ['rmucci00', '', 'fec03.cineca.it:8081']
     client = Context.createclient(auth)
     client.login()
+
     print
     print "Listing folder's element.."
-    print
-    list = client.list('CINECA/home/rmucci00/')
+    list = client.list('/CINECA/home/rmucci00/')
     for el in list:
         print el
 
-
     print
     print "Uploading an object.."
-    print
-    client.put('/home/rmucci00/uploadTest.txt', 'CINECA/home/rmucci00/http_test.txt')
-
+    client.put('/home/rmucci00/uploadTest.txt', 'CINECA/home/rmucci00/uploadTest.txt')
 
 
     print
     print "Downloading an object.."
+    client.get('CINECA/home/rmucci00/uploadTest.txt', '/tmp/downtest_uploadTest.txt')
+
     print
-    client.get('CINECA/home/rmucci00/aniTest.avi', '/tmp/downtest_aniTest.avi')
+    print "Listing folder's element.."
+    list = client.list('/CINECA/home/rmucci00/')
+    for el in list:
+        print el
 
-
+    print
+    print "Deleting an object.."
+    client.delete('CINECA/home/rmucci00/uploadTest.txt')
 
     exit()
 
