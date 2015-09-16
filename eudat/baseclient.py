@@ -53,14 +53,14 @@ class BaseClient(object):
     def get_pid_by_metadata(self, ckan_url='eudat-b1.dkrz.de', community='',
                          pattern=[], ckan_limit=1000):
         """
-        Retrieve dataset info by given search criteria using CKAN portal.
+        Retrieve dataset PIDs by given search criteria using CKAN portal.
 
         :param ckan_url: CKAN portal address, to which search requests are
         submitted (default is eudat-b1.dkrz.de).
         :param community: Community where you want to search in.
         :param pattern: CKAN search pattern i.e. (a list of) field:value terms.
         :param ckan_limit: Limit of listed datasets (default is 1000).
-        :return: list of PIDs.
+        :return: list of PIDs (with handle URL).
         """
         results = datasetinfo.get_dataset_info(ckan_url=ckan_url,
                                                community=community,
@@ -76,7 +76,7 @@ class BaseClient(object):
 
     def resolve_pid(self, pid, handle_url='hdl.handle.net'):
         """
-        Resolve pid information accessing the handle resolution system provider
+        Resolve PIDs information accessing the handle resolution system provider
         using HTTP REST API.
 
         :param pid: PID that has to be resolved

@@ -43,6 +43,10 @@ def get_dataset_info(ckan_url='eudat-b1.dkrz.de', community='', pattern=[],
     print "Search in\t%s\nfor pattern\t%s\n....." % (ckan_url, ckan_pattern)
     answer = action(ckan_url, {"q": ckan_pattern, "rows": ckan_limit,
                                "start": 0})
+
+    if answer == None:
+        return answer
+
     tcount = answer['result']['count']
     print "=> %d datasets found" % tcount
     if tcount > ckan_limit:
@@ -70,7 +74,7 @@ def get_dataset_info(ckan_url='eudat-b1.dkrz.de', community='', pattern=[],
 
         cstart += len(answer['result']['results'])
 
-    print "Found %d reciords and %d associated PIDs" % (counter, countpid)
+    print "Found %d records and %d associated PIDs" % (counter, countpid)
     return results
 
 
@@ -111,30 +115,31 @@ def __action_api(host, action, data_dict):
               " %s." % (e.code,host,action)
         if e.code == 403:
             print '\t\tAccess forbidden, maybe the API key is not valid?'
-            exit(e.code)
+            return
         elif e.code == 409 and action == 'package_create':
             print '\t\tMaybe the dataset already exists or you have' \
                   ' a parameter error?'
             action('package_update', data_dict)
-            return {"success": False}
+            return
         elif e.code == 409:
             print '\t\tMaybe you have a parameter error?'
-            return {"success": False}
+            return
         elif e.code == 500:
             print '\t\tInternal server error'
-            exit(e.code)
+            return []
     except urllib2.URLError as e:
-        exit('%s' % e.reason)
+        print 'urllib2.URLError: {0}'.format(e.reason)
+        return
     else:
         out = json.loads(response.read())
         assert response.code >= 200
         return out
 
+
 def main():
     """ Main function to test the script """
     #get_dataset_info(pattern=['tags:MPIOM'])
     get_dataset_info(community='aleph')
-
 
 
 if __name__ == '__main__':

@@ -28,6 +28,7 @@ class ClientGlobus(BaseClient):
         :param auth: a list containing username[0], certfile[1] and keyfile[2]
         :param http_session:
         """
+        self.auth = auth
         if len(self.auth) < 4: #or !self.auth[0] or !self.auth[2] or !self.auth[3]:
              print "Can not init session: some parameters are missing.."
         self.auth = auth
@@ -51,8 +52,6 @@ class ClientGlobus(BaseClient):
             raise Exception("GSI authentication failed: {0}".format(e))
 
 
-
-
     def endpoint_activation(self, endpoint_name, myproxy_username=''):
         """
         Method to activate endpoints (maybe could be an internal method)
@@ -61,7 +60,8 @@ class ClientGlobus(BaseClient):
         :param myproxy_username: myproxy user name
         """
 
-        print "==Checking if endpoint {0} is already activated==".format(
+        print
+        print "Checking if endpoint {0} is already activated".format(
              endpoint_name)
         _, _, data = self.api.endpoint(endpoint_name)
         if data["activated"]:
@@ -73,7 +73,8 @@ class ClientGlobus(BaseClient):
         print "==Activating endpoint: {0}==".format(endpoint_name)
 
         # Trying with autoactivation
-        print "==Trying autoactivation=="
+        print
+        print "Trying autoactivation"
         code, message, data = self.api.endpoint_autoactivate(
             endpoint_name)
 
@@ -83,13 +84,16 @@ class ClientGlobus(BaseClient):
             return
 
         # Trying with myproxy
-        print "==Trying activating with myproxy=="
+        print
+        print "Trying activating with myproxy"
         print "Please enter your myproxy username (\'none\' if you do not" \
               " have one)."
         myproxy_username = sys.stdin.readline().rstrip()
 
         #data.set_requirement_value("myproxy", "hostname", "myproxy.cineca.it")
         data.set_requirement_value("myproxy", "username", myproxy_username)
+
+        # Remove interactive messages: add arguments to manage this part
         from getpass import getpass
         passphrase = getpass()
         data.set_requirement_value("myproxy", "passphrase", passphrase)
@@ -105,7 +109,8 @@ class ClientGlobus(BaseClient):
             print "Error: {0}".format(e)
 
         # Trying activating a delegate proxy
-        print "==Trying delegate proxy activation=="
+        print
+        print "Trying delegate proxy activation"
         _, _, reqs = self.api.endpoint_activation_requirements(
             endpoint_name, type="delegate_proxy")
         public_key = reqs.get_requirement_value("delegate_proxy", "public_key")
@@ -222,6 +227,8 @@ class ClientGlobus(BaseClient):
                 if ret_val == 0:
                     print "Proxy found!"
                 else:
+                    # Remove interactive message: add arguments to manage the
+                    # request for GRID pass phrase
                     print "Proxy expired. I will try to create a new one.."
                     os.system('grid-proxy-init' + grid_proxy_init_options)
             except:

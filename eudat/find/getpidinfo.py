@@ -8,7 +8,6 @@ __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
 
 import json
-#import urllib
 import urllib2
 
 
@@ -28,6 +27,10 @@ def get_pid_info(pid, handle_url='hdl.handle.net'):
 
     print "Search in\t%s\nfor pid\t%s\n....." % (handle_url, pid)
     answer = __action_api(handle_url, pid)
+
+    if answer == None:
+        return answer
+
     values = answer['values']
     return values
 
@@ -45,13 +48,14 @@ def __action_api(host, pid):
         if e.code == 500:
             print '\t\tError. Something unexpected went wrong during handle ' \
                   'resolution. (HTTP 500 Internal Server Error)'
-            exit(e.code)
+            return
         elif e.code == 404:
             print '\t\tHandle Not Found. (HTTP 404 Not Found)'
-            exit(e.code)
+            return
 
     except urllib2.URLError as e:
-        exit('%s' % e.reason)
+        print 'urllib2.URLError: {0}'.format(e.reason)
+        return
     else:
         out = json.loads(response.read())
         if out['responseCode'] == 200:
@@ -61,10 +65,10 @@ def __action_api(host, pid):
         assert response.code >= 200
         return out
 
+
 def main():
     """ Main function to test the script """
     get_pid_info(pid='11100/0beb6af8-cbe5-11e3-a9da-e41f13eb41b2')
-
 
 
 if __name__ == '__main__':
