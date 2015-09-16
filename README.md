@@ -9,6 +9,14 @@ interactions with all EUDAT services ranging from the ingestion of new data sets
 the discovery, the retrieval, to the analysis.
 
 
+Requirements
+-----------
+nose - https://nose.readthedocs.org/en/latest/
+
+Install with ```pip install nose```
+
+
+
 
 Usage example
 -------------
