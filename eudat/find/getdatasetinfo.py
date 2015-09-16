@@ -70,7 +70,7 @@ def get_dataset_info(ckan_url='eudat-b1.dkrz.de', community='', pattern=[],
 
         cstart += len(answer['result']['results'])
 
-    print "Found %d records and %d associated PIDs" % (counter, countpid)
+    print "Found %d reciords and %d associated PIDs" % (counter, countpid)
     return results
 
 
