@@ -11,6 +11,11 @@ the discovery, the retrieval, to the analysis.
 
 Requirements
 -----------
+globus python api - https://github.com/globusonline/transfer-api-client-python
+
+Install with ```easy_install globusonline-transfer-api-client```
+
+
 nose - https://nose.readthedocs.org/en/latest/
 
 Install with ```pip install nose```
