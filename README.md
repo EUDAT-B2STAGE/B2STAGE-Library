@@ -8,6 +8,10 @@ services. Leveraging the former Data Staging Script, it aims at supporting
 interactions with all EUDAT services ranging from the ingestion of new data sets,
 the discovery, the retrieval, to the analysis.
 
+Warning
+-----------
+This projet is at an early stage of development. The API will change and this repository will be obsolete withing a few days
+
 
 Requirements
 -----------
