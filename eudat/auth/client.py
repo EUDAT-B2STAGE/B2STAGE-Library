@@ -1,45 +1,100 @@
-import re
+#!/usr/bin/env python
 
-'''
-from xml.etree import ElementTree
-from . import __version__
-from .. import find
-'''
+"""
+Manage authentication to Globus or HTTP API
+"""
 
-from globusonline.transfer import api_client
+__author__ = 'Roberto Mucci (r.mucci@cineca.it), ' \
+             'Giuseppe Fiameni (g.fiameni@cineca.it)'
 
 from globusonline.transfer.api_client import TransferAPIClient
-from globusonline.transfer.api_client.goauth import get_access_token
-
-_url_key_re_v1 = re.compile(r'key=([^&#]+)')
-_url_key_re_v2 = re.compile(r'spreadsheets/d/([^&#]+)/edit')
-
-from gspread import *
 
 
-class Client(object):
+class Client():
 
     def __init__(self, auth, http_session=None):
+        """ Store the object containing the information needed for
+        the authentication """
+
+        # Need to find a smart method to check if auth is a list or an object
+        if len(auth) < 2:
+            print "/'auth/' object must contain at least 2 values"
+
         self.auth = auth
         self.session = http_session
+        if self.auth[0]:
+            print "user name set as {0}".format(self.auth[0])
+        if self.auth[1]:
+            print "password set as ************".format(self.auth[1])
+
+        if len(self.auth) > 2:
+            if self.auth[2]:
+                print "cert file set as {0}".format(self.auth[2])
+            if self.auth[3]:
+                print "key file set as {0}".format(self.auth[3])
 
     def login(self):
-        try:
-            self.api = TransferAPIClient(username=self.auth[0], cert_file= self.auth[1], key_file=self.auth[2])
-        except:
-            raise AuthenticationError("Unable to authenticate.")
+        """ Perform the login via GSI or username and password """
+        api = None
+        if len(self.auth) > 2 and self.auth[0] and self.auth[2] and self.auth[3]:
+            try:
+                api = TransferAPIClient(username=self.auth[0],
+                                        cert_file=self.auth[2],
+                                        key_file=self.auth[3])
+            except Exception as e:
+                raise Exception("GSI authentication failed: {0}".format(e))
 
-    """Authorize client using ClientLogin protocol.
+        elif self.auth[0] and self.auth[1]:
+            # authentication with username and password not supported yet
+            raise Exception("Authentication with username and password not "
+                            "supported yet..")
 
-        The credentials provided in `auth` parameter to class' constructor will be used.
+        return api
 
-        This method is using API described at:
-        http://code.google.com/apis/accounts/docs/AuthForInstalledApps.html
+    def display_activation(self, endpoint_name):
+        print "=== Endpoint pre-activation ==="
+        self.display_endpoint(endpoint_name)
 
-        :raises AuthenticationError: if login attempt fails.
+        print
+        code, reason, result = self.api.endpoint_autoactivate(endpoint_name,
+                                                         if_expires_in=600)
+        if result["code"].startswith("AutoActivationFailed"):
+            print "Auto activation failed, ls and transfers will likely fail!"
+        print "result: %s (%s)" % (result["code"], result["message"])
+        print "=== Endpoint post-activation ==="
+        self.display_endpoint(endpoint_name)
+        print
 
-        """
+    def display_endpoint(self, endpoint_name):
+        code, reason, data = self.api.endpoint(endpoint_name)
+        self._print_endpoint(data)
 
+    def _print_endpoint(self, ep):
+        name = ep["canonical_name"]
+        print name
+        if ep["activated"]:
+            print "  activated (expires: %s)" % ep["expire_time"]
+        else:
+            print "  not activated"
+        if ep["public"]:
+            print "  public"
+        else:
+            print "  not public"
+        if ep["myproxy_server"]:
+            print "  default myproxy server: %s" % ep["myproxy_server"]
+        else:
+            print "  no default myproxy server"
+        servers = ep.get("DATA", ())
+        print "  servers:"
+        for s in servers:
+            uri = s["uri"]
+            if not uri:
+                uri = "GC endpoint, no uri available"
+            print "    " + uri,
+            if s["subject"]:
+                print " (%s)" % s["subject"]
+            else:
+                print
 
 """
     def _get_auth_token(self, content):
@@ -100,8 +155,10 @@ def authorize(credentials):
     return client
 
 
-if __name__ == '__main__':
-    username = 'gfiameni'
+def main():
+    """ Main function to test the library """
+    pass
+    username = 'rmucci00'
     cert_file = '/home/fiameni/Documents/Personal/reserved/certificates/infn/expires_2015/usercert.pem'
     key_file = '/home/fiameni/Documents/Personal/reserved/certificates/infn/expires_2015/userkey.pem'
 
@@ -111,3 +168,7 @@ if __name__ == '__main__':
 
     # client = Client(auth=('username', 'cert_file', 'key_file', 'GSI'))
     # client.login()
+
+
+if __name__ == '__main__':
+    main()
