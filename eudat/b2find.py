@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 """
+Python API for B2FIND.
 Retrieve dataset info by given search criteria using CKAN portal
 """
 

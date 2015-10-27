@@ -1,20 +1,20 @@
 #!/usr/bin/env python
 
 """
-Test  getdatasetinfo.py
+Test  b2find.py
 """
 
 __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
 
 from nose.tools import assert_equals
-import eudat.find.getdatasetinfo as datasetinfo
+import eudat.b2find as b2find
 
 
 
 def test_get_dataset_info_aleph():
-    """ Get info by community aleph """
-    datasets = datasetinfo.get_dataset_info(ckan_url='eudat-b1.dkrz.de',
+    """ B2SAFE: get info by community aleph """
+    datasets = b2find.get_dataset_info(ckan_url='eudat-b1.dkrz.de',
                                      community='aleph',
                                      pattern=[],
                                      ckan_limit=1000)
@@ -23,23 +23,23 @@ def test_get_dataset_info_aleph():
 
 
 def test_get_dataset_info_wrong_url():
-    """ Get info with wrong ckan URL """
-    datasets = datasetinfo.get_dataset_info(ckan_url='wrong.url',
+    """ B2SAFE: get info with wrong ckan URL """
+    datasets = b2find.get_dataset_info(ckan_url='wrong.url',
                                      community='aleph')
 
     assert_equals(datasets, None)
 
 
 def test_get_dataset_info_by_tags():
-    """ Get info by pattern """
-    datasets = datasetinfo.get_dataset_info(pattern=['tags:climate'])
+    """ B2SAFE: get info by pattern """
+    datasets = b2find.get_dataset_info(pattern=['tags:climate'])
 
     assert_equals(len(datasets), 4)
 
 
 def test_get_dataset_source_aleph():
-    """ Get source by community aleph """
-    datasets = datasetinfo.get_dataset_source(ckan_url='eudat-b1.dkrz.de',
+    """ B2SAFE: get source by community aleph """
+    datasets = b2find.get_dataset_source(ckan_url='eudat-b1.dkrz.de',
                                      community='aleph',
                                      pattern=[],
                                      ckan_limit=1000)
