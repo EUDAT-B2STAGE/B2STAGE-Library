@@ -22,14 +22,14 @@ class ClientHTTP(BaseClient):
         :param http_session:
         """
         self.auth = auth
-        if len(self.auth) < 3: #or !self.auth[0] or !self.auth[2] or !self.auth[3]:
+        if len(self.auth) < 3: # or !self.auth[0] or !self.auth[2] or !self.auth[3]:
              print "Can not authenticate user: some parameters are missing.."
         self.http_session = http_session
 
     def login(self):
         """ Login to the HTTP EUDAT server.
         Do I really need a login methos since I can always pass credentials
-        in each HTTP request? Probably not.. """
+        in each HTTP request? Probably no.. """
 
         answer = self.__action_api(self.auth[2])
         # print "Login answer is --->", answer
