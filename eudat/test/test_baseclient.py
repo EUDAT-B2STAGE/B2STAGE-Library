@@ -21,7 +21,7 @@ def test_get_info_by_metadata():
 
 
 def test_get_pid_by_metadata():
-    """ get pids by metadata for community aleph """
+    """ get PIDs by metadata for community aleph """
     client = BaseClient()
     pids = client.get_pid_by_metadata(community='aleph')
 
@@ -29,13 +29,14 @@ def test_get_pid_by_metadata():
 
 
 def test_resolve_pid():
-    """ get info resolving pid """
+    """ get info resolving PID """
     client = BaseClient()
     pid = '11100/0beb6af8-cbe5-11e3-a9da-e41f13eb41b2'
     results = client.resolve_pid(pid)
 
     assert_equals(results[0]['data']['value'],
                   'irods://data.repo.cineca.it:1247/CINECA01/home/EUDAT_STAFF/Aleph_Test/ZD4000.59.AL')
+
 
 def test_get_url_by_pid():
     """ get url by pid """
