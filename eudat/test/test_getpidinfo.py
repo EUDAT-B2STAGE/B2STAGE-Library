@@ -8,7 +8,7 @@ __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
 
 from nose.tools import assert_equals
-import eudat.find.getpidinfo as pidinfo
+import eudat.getpidinfo as pidinfo
 
 
 def test_get_pid_info():

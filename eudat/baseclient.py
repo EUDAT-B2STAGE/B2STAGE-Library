@@ -9,8 +9,8 @@ Some methods are abstract and implemented in specific classes.
 __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
 
-import find.getdatasetinfo as datasetinfo
-import find.getpidinfo as pidinfo
+import b2find as datasetinfo
+import getpidinfo as pidinfo
 
 
 class BaseClient(object):

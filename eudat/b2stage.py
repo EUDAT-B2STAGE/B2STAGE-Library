@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 """
-Client to manage Globus activities (endpoint activation, transfer..)
+Python API for B2STAGE.
+Client to manage Globus activities (endpoint activation, data transfer..)
 """
 
 __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
@@ -20,10 +21,10 @@ from globusonline.transfer.api_client import Transfer
 from globusonline.transfer.api_client import create_client_from_args
 
 
-class ClientGlobus(BaseClient):
+class ClientGlobus():
     def __init__(self, auth, http_session=None):
         """
-        Initialize the Globus session
+        Initialize the Globus session: login with username and certificates
 
         :param auth: a list containing username[0], certfile[1] and keyfile[2]
         :param http_session:
@@ -38,59 +39,80 @@ class ClientGlobus(BaseClient):
         if len(self.auth) > 0:
             self.proxy_name = 'credential-' + self.auth[0] + '.pem'
 
-
-
-    def login(self):
-        """ Globus login with username and certificates"""
         try:
             self.api = TransferAPIClient(username=self.auth[0],
                                          cert_file=self.auth[2],
                                          key_file=self.auth[3])
             self.api.set_debug_print(False, False)
-            print "Successfully logged in with Globus!"
+            print "Successfully logged in with Globus online!"
         except Exception as e:
             raise Exception("GSI authentication failed: {0}".format(e))
 
+    def display_endpoint_list(self):
+        code, reason, endpoint_list = self.api.endpoint_list(limit=100)
+        print "Found %d endpoints for user %s:" \
+            % (endpoint_list["length"], self.api.username)
+        for ep in endpoint_list["DATA"]:
+            self._print_endpoint(ep)
+
+    def _print_endpoint(self, ep):
+        name = ep["canonical_name"]
+        print name
+        if ep["activated"]:
+            print "  activated (expires: %s)" % ep["expire_time"]
+        else:
+            print "  not activated"
+        if ep["public"]:
+            print "  public"
+        else:
+            print "  not public"
+        if ep["myproxy_server"]:
+            print "  default myproxy server: %s" % ep["myproxy_server"]
+        else:
+            print "  no default myproxy server"
+        servers = ep.get("DATA", ())
+        print "  servers:"
+        for s in servers:
+            uri = s["uri"]
+            if not uri:
+                uri = "GC endpoint, no uri available"
+            print "    " + uri,
+            if s["subject"]:
+                print " (%s)" % s["subject"]
+            else:
+                print
 
     def endpoint_activation(self, endpoint_name, myproxy_username=''):
         """
-        Method to activate endpoints (maybe could be an internal method)
+        Activate a GridFTP endpoint
 
         :param endpoint_name: name of the endpoint to activate
         :param myproxy_username: myproxy user name
         """
 
+        #code, reason, data = self.api.endpoint(endpoint_name)
+        #self._print_endpoint(data)
+        #self.display_endpoint_list();
         print
-        print "Checking if endpoint {0} is already activated".format(
+        print "Checking if endpoint {0} is already activated\n".format(
              endpoint_name)
         _, _, data = self.api.endpoint(endpoint_name)
         if data["activated"]:
-            print "Endpoint {0} already activated!".format(endpoint_name)
-            return
-
-        self.check_proxy()
-        user_credential_path = os.path.join(os.getcwd(), self.proxy_name)
-        print "==Activating endpoint: {0}==".format(endpoint_name)
+            print "Endpoint {0} is already active!\n".format(endpoint_name)
+            return True
 
         # Trying with autoactivation
-        print
-        print "Trying autoactivation"
+        print "Trying autoactivation\n"
         code, message, data = self.api.endpoint_autoactivate(
             endpoint_name)
 
         if not data["code"].startswith("AutoActivationFailed"):
-            print "Endpoint {0} activated!".format(endpoint_name)
-            print "result: {0} ({1})".format(data["code"], data["message"])
-            return
+            print "Endpoint {0} activated!\n".format(endpoint_name)
+            print "result: {0} ({1})\n".format(data["code"], data["message"])
+            return True
 
-        # Trying with myproxy
-        print
-        print "Trying activating with myproxy"
-        print "Please enter your myproxy username (\'none\' if you do not" \
-              " have one)."
-        myproxy_username = sys.stdin.readline().rstrip()
+        print "Trying activating with myproxy\n"
 
-        #data.set_requirement_value("myproxy", "hostname", "myproxy.cineca.it")
         data.set_requirement_value("myproxy", "username", myproxy_username)
 
         # Remove interactive messages: add arguments to manage this part
@@ -102,15 +124,17 @@ class ClientGlobus(BaseClient):
                                                                data,
                                                                if_expires_in=600)
             if not data["code"].startswith("AutoActivationFailed"):
-                print "Endpoint {0} activated!".format(endpoint_name)
-                print "result: {0} ({1})".format(data["code"], data["message"])
-                return
+                print "Endpoint {0} activated!\n".format(endpoint_name)
+                print "result: {0} ({1})\n".format(data["code"], data["message"])
+                return True
         except Exception as e:
             print "Error: {0}".format(e)
 
         # Trying activating a delegate proxy
+        self.check_proxy()
+        user_credential_path = os.path.join(os.getcwd(), self.proxy_name)
         print
-        print "Trying delegate proxy activation"
+        print "Trying delegate proxy activation\n"
         _, _, reqs = self.api.endpoint_activation_requirements(
             endpoint_name, type="delegate_proxy")
         public_key = reqs.get_requirement_value("delegate_proxy", "public_key")
@@ -126,23 +150,23 @@ class ClientGlobus(BaseClient):
                                                              reqs)
 
             if not data["code"].startswith("AutoActivationFailed"):
-                print "Endpoint {0} activated!".format(endpoint_name)
-                print "result: {0} ({1})".format(data["code"], data["message"])
-                return
+                print "Endpoint {0} activated!\n".format(endpoint_name)
+                print "result: {0} ({1})\n".format(data["code"], data["message"])
+                return True
         except Exception as e:
             print "Error: {0}".format(e)
-            print "Can not active the endpoint {0}".format(endpoint_name)
+            print "Can not active the endpoint {0}\n".format(endpoint_name)
             if "proxy is not valid until" in str(e):
                 print "This error may be related to clock time skew. " \
-                      "Please, check if your clint clock is server " \
+                      "Please, check if your client clock is server " \
                       "synchronized and not ahead (you could check with " \
                       "\"www.time.is\")"
+            return False
 
-
-    def put(self, src_endpoint, dst_endpoint, item, dst_dir):
+    def transfer(self, src_endpoint, dst_endpoint, item, dst_dir):
         """
         Transfer a file from one endpoint to another. Return the Globus
-        task_id. Should maybe be called transfer instead of put
+        task_id.
 
         :param src_endpoint: source endpoint name (i.e. user#endpoint)
         :param dst_endpoint: destination endpoint name (i.e. user#endpoint)
@@ -211,13 +235,6 @@ class ClientGlobus(BaseClient):
         a new one."""
 
         grid_proxy_init_options = ' -out ' + self.proxy_name
-        #if arguments.cert:
-        #    grid_proxy_init_options=grid_proxy_init_options+' -cert '+arguments.cert
-        #if arguments.key:
-        #    grid_proxy_init_options=grid_proxy_init_options+' -key '+arguments.key
-        #if arguments.certdir:
-        #    grid_proxy_init_options=grid_proxy_init_options+' -certdir '+arguments.certdir
-        #print "grid_proxy_init_options: "+grid_proxy_init_options
         print
         print "==Checking for a valid proxy=="
         if os.path.exists(self.proxy_name):
@@ -239,10 +256,10 @@ class ClientGlobus(BaseClient):
             os.system('grid-proxy-init' + grid_proxy_init_options)
         print
 
-    def get(self):
-        pass
+    #def get(self):
+    #    pass
 
-    def get_endpoint_from_URL(self, url):
+    def get_endpoint_from_url(self, url):
         """
         Read the endpoints.cfg configuration file to discover which endpoint
         is associated to the url.
@@ -276,3 +293,14 @@ class ClientGlobus(BaseClient):
         return res
 
 
+def main():
+    """ Main function to test the script """
+    auth = ['rmucci00', '', '/home/rmucci00/.globus/usercert.pem',
+            '/home/rmucci00/.globus/userkey.pem']
+    globus = ClientGlobus(auth);
+    globus.display_endpoint_list()
+    globus.endpoint_activation('cineca#GALILEO', 'rmucci00')
+
+
+if __name__ == '__main__':
+    main()

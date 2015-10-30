@@ -15,7 +15,7 @@ class Context():
     """Class factory to create an instance of the client"""
 
     @staticmethod
-    def createclient(auth=''):
+    def create_client(auth=''):
         """Create an instance of the client"""
         # Need to find a smart method to understand which client has to be
         # created
@@ -62,16 +62,16 @@ def main():
     """ Main function to test the library """
 
     # Client without authentication
-    client = Context.createclient()
+    client = Context.create_client()
     pid = '11100/0beb6af8-cbe5-11e3-a9da-e41f13eb41b2'
-    pids = client.get_url_by_pid(pid)
-    for p in pids:
-        print "Here is the URL for pid {0}: {1}".format(pid, p)
+    url = client.get_url_by_pid(pid)
+    for u in url:
+        print "Here is the URL for pid {0}: {1}".format(pid, u)
 
-
+    '''
     # HTTP client
-    auth = ['rmucci00', '', 'fec03.cineca.it:8081']
-    client = Context.createclient(auth)
+    auth = ['rmucci00', 'saturnin0', 'fec03.cineca.it:8081']
+    client = Context.create_client(auth)
     client.login()
 
     print
@@ -83,7 +83,6 @@ def main():
     print
     print "Uploading an object.."
     client.put('/home/rmucci00/uploadTest.txt', 'CINECA/home/rmucci00/uploadTest.txt')
-
 
     print
     print "Downloading an object.."
@@ -99,7 +98,10 @@ def main():
     print "Deleting an object.."
     client.delete('CINECA/home/rmucci00/uploadTest.txt')
 
-    exit()
+    # delete a folder
+    # client.delete('CINECA/home/rmucci00/empty/')
+    '''
+
 
 
     # globus client (passing cert paths)
@@ -111,7 +113,7 @@ def main():
     # http client (passing username and pwd)
     #auth = ['rmucci00', '']
 
-    client = Context.createclient(auth)
+    client = Context.create_client(auth)
     client.login()
 
     datasets = client.get_info_by_metadata(community='aleph')

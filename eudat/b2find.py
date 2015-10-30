@@ -124,7 +124,8 @@ def __action_api(host, action, data_dict):
         print e
         return
     if response.status_code != 200:
-        print "Error code {0}. The server {1} couldn't fulfill the action {2}.\n".format(response.status_code, host, action)
+        print "Error code {0}. The server {1} couldn't fulfill the action {2}.\n"\
+            .format(response.status_code, host, action)
         return
     out = json.loads(response.text)
     return out
