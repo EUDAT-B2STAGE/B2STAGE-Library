@@ -10,6 +10,16 @@ __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
 import json
 import requests
+import logging
+try:  # Python 2.7+
+    from logging import NullHandler
+except ImportError:
+    class NullHandler(logging.Handler):
+        def emit(self, record):
+            pass
+
+LOGGER = logging.getLogger(__name__)
+LOGGER.addHandler(NullHandler())
 
 
 def get_dataset_source(ckan_url='eudat-b1.dkrz.de', community='', pattern=[],
@@ -40,7 +50,7 @@ def get_dataset_source(ckan_url='eudat-b1.dkrz.de', community='', pattern=[],
     if pattern:
         ckan_pattern += sand + pattern
 
-    print "Search in %s for pattern %s\n....." % (ckan_url, ckan_pattern)
+    LOGGER.debug("Search in %s for pattern %s\n....." % (ckan_url, ckan_pattern))
     answer = _action(ckan_url, {"q": ckan_pattern, "rows": ckan_limit,
                                "start": 0})
 
@@ -53,7 +63,7 @@ def get_dataset_source(ckan_url='eudat-b1.dkrz.de', community='', pattern=[],
             results.append(ds['url'])
             countURL += 1
 
-    print "Found %d Sources\n" % (countURL)
+    LOGGER.info("Found %d Sources\n" % (countURL))
     return results
 
 
@@ -85,7 +95,7 @@ def get_dataset_info(ckan_url='eudat-b1.dkrz.de', community='', pattern=[],
     if pattern:
         ckan_pattern += sand + pattern
 
-    print "Search in %s for pattern %s\n....." % (ckan_url, ckan_pattern)
+    LOGGER.debug("Search in %s for pattern %s\n....." % (ckan_url, ckan_pattern))
     answer = _action(ckan_url, {"q": ckan_pattern, "rows": ckan_limit,
                                "start": 0})
 
@@ -102,7 +112,7 @@ def get_dataset_info(ckan_url='eudat-b1.dkrz.de', community='', pattern=[],
                     countPID += 1
                     break
 
-    print "Found %d PIDs\n" % (countPID)
+    LOGGER.info("Found %d PIDs\n" % (countPID))
     return results
 
 

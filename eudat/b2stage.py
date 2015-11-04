@@ -20,6 +20,17 @@ from globusonline.transfer.api_client import x509_proxy
 from globusonline.transfer.api_client import Transfer
 from globusonline.transfer.api_client import create_client_from_args
 
+import logging
+try:  # Python 2.7+
+    from logging import NullHandler
+except ImportError:
+    class NullHandler(logging.Handler):
+        def emit(self, record):
+            pass
+
+LOGGER = logging.getLogger(__name__)
+LOGGER.addHandler(NullHandler())
+
 
 class ClientGlobus():
     def __init__(self, auth, http_session=None):
@@ -44,14 +55,14 @@ class ClientGlobus():
                                          cert_file=self.auth[2],
                                          key_file=self.auth[3])
             self.api.set_debug_print(False, False)
-            print "Successfully logged in with Globus online!"
+            LOGGER.info("Successfully logged in with Globus online!")
         except Exception as e:
             raise Exception("GSI authentication failed: {0}".format(e))
 
     def display_endpoint_list(self):
         code, reason, endpoint_list = self.api.endpoint_list(limit=100)
-        print "Found %d endpoints for user %s:" \
-            % (endpoint_list["length"], self.api.username)
+        LOGGER.info("Found %d endpoints for user %s:" \
+            % (endpoint_list["length"], self.api.username))
         for ep in endpoint_list["DATA"]:
             self._print_endpoint(ep)
 
@@ -93,25 +104,26 @@ class ClientGlobus():
         #code, reason, data = self.api.endpoint(endpoint_name)
         #self._print_endpoint(data)
         #self.display_endpoint_list();
-        print
-        print "Checking if endpoint {0} is already activated\n".format(
-             endpoint_name)
+
+        LOGGER.debug("Checking if endpoint {0} is already activated".format(
+             endpoint_name))
         _, _, data = self.api.endpoint(endpoint_name)
         if data["activated"]:
-            print "Endpoint {0} is already active!\n".format(endpoint_name)
+            LOGGER.info("Endpoint {0} is already active!".format(endpoint_name))
             return True
 
         # Trying with autoactivation
-        print "Trying autoactivation\n"
+        LOGGER.debug("Trying autoactivation")
         code, message, data = self.api.endpoint_autoactivate(
             endpoint_name)
 
         if not data["code"].startswith("AutoActivationFailed"):
-            print "Endpoint {0} activated!\n".format(endpoint_name)
-            print "result: {0} ({1})\n".format(data["code"], data["message"])
+            LOGGER.info("Endpoint {0} activated!".format(endpoint_name))
+            LOGGER.debug("result: {0} ({1})".format(data["code"],
+                                                    data["message"]))
             return True
 
-        print "Trying activating with myproxy\n"
+        LOGGER.debug("Trying activating with myproxy")
 
         data.set_requirement_value("myproxy", "username", myproxy_username)
 
@@ -124,8 +136,9 @@ class ClientGlobus():
                                                                data,
                                                                if_expires_in=600)
             if not data["code"].startswith("AutoActivationFailed"):
-                print "Endpoint {0} activated!\n".format(endpoint_name)
-                print "result: {0} ({1})\n".format(data["code"], data["message"])
+                LOGGER.info("Endpoint {0} activated!\n".format(endpoint_name))
+                LOGGER.debug("result: {0} ({1})\n".format(data["code"],
+                                                          data["message"]))
                 return True
         except Exception as e:
             print "Error: {0}".format(e)
@@ -133,8 +146,8 @@ class ClientGlobus():
         # Trying activating a delegate proxy
         self.check_proxy()
         user_credential_path = os.path.join(os.getcwd(), self.proxy_name)
-        print
-        print "Trying delegate proxy activation\n"
+
+        LOGGER.debug("Trying delegate proxy activation")
         _, _, reqs = self.api.endpoint_activation_requirements(
             endpoint_name, type="delegate_proxy")
         public_key = reqs.get_requirement_value("delegate_proxy", "public_key")
@@ -150,8 +163,9 @@ class ClientGlobus():
                                                              reqs)
 
             if not data["code"].startswith("AutoActivationFailed"):
-                print "Endpoint {0} activated!\n".format(endpoint_name)
-                print "result: {0} ({1})\n".format(data["code"], data["message"])
+                LOGGER.info("Endpoint {0} activated!\n".format(endpoint_name))
+                LOGGER.debug("result: {0} ({1})\n".format(data["code"],
+                                                          data["message"]))
                 return True
         except Exception as e:
             print "Error: {0}".format(e)
@@ -189,8 +203,8 @@ class ClientGlobus():
         submission_id = data["value"]
         #deadline = datetime.utcnow() + timedelta(minutes=10)
         t = Transfer(submission_id, src_endpoint, dst_endpoint)#, deadline)
-        print "==Transferring {0} from endpoint {1} to endpoint {2}==".format(
-            item, src_endpoint, dst_endpoint)
+        LOGGER.info("Transferring {0} from endpoint {1} to endpoint {2}".format(
+            item, src_endpoint, dst_endpoint))
         t.add_item(item, os.path.join(dst_dir, os.path.basename(item)))
         code, reason, data = self.api.transfer(t)
         task_id = data["task_id"]
@@ -199,11 +213,11 @@ class ClientGlobus():
 
     def display_tasksummary(self):
         code, reason, data = self.api.tasksummary()
-        print "Task Summary for %s:" % self.api.username
+        LOGGER.info("Task Summary for %s:" % self.api.username)
         for k, v in data.iteritems():
             if k == "DATA_TYPE":
                 continue
-            print "%3d %s" % (int(v), k.upper().ljust(9))
+            LOGGER.info("%3d %s" % (int(v), k.upper().ljust(9)))
 
     def _print_task(self, data, indent_level=0):
         indent = " " * indent_level
@@ -211,11 +225,11 @@ class ClientGlobus():
         for k, v in data.iteritems():
             if k in ("DATA_TYPE", "LINKS"):
                 continue
-            print indent + "%s: %s" % (k, v)
+            LOGGER.info(indent + "%s: %s" % (k, v))
 
     def display_task(self, task_id, show_successful_transfers=True):
         code, reason, data = self.api.task(task_id)
-        print "Task %s:" % task_id
+        LOGGER.info("Task %s:" % task_id)
         self._print_task(data, 0)
 
         if show_successful_transfers:
@@ -223,10 +237,10 @@ class ClientGlobus():
                 code, reason, data = self.api.task_successful_transfers(
                     task_id)
                 transfer_list = data["DATA"]
-                print "Successful Transfers (src -> dst)"
+                LOGGER.info("Successful Transfers (src -> dst)")
                 for t in transfer_list:
-                    print " %s -> %s" % (t[u'source_path'],
-                                         t[u'destination_path'])
+                    LOGGER.info(" %s -> %s" % (t[u'source_path'],
+                                         t[u'destination_path']))
             except Exception as e:
                 "Error verifying successful transfer: {0}".format(e)
 
@@ -235,26 +249,26 @@ class ClientGlobus():
         a new one."""
 
         grid_proxy_init_options = ' -out ' + self.proxy_name
-        print
-        print "==Checking for a valid proxy=="
+
+        LOGGER.debug("Checking for a valid proxy")
         if os.path.exists(self.proxy_name):
-            print self.proxy_name + ' exists..'
+            LOGGER.debug(self.proxy_name + ' exists..')
             try:
                 ret_val = os.system('grid-proxy-info -exists -f ' + self.proxy_name)
                 if ret_val == 0:
-                    print "Proxy found!"
+                    LOGGER.info("Proxy found!")
                 else:
                     # Remove interactive message: add arguments to manage the
                     # request for GRID pass phrase
-                    print "Proxy expired. I will try to create a new one.."
+                    LOGGER.debug("Proxy expired. I will try to create a new one..")
                     os.system('grid-proxy-init' + grid_proxy_init_options)
             except:
                 print "Proxy invalid. New one, please!"
                 os.system('grid-proxy-init' + grid_proxy_init_options)
         else:
-            print self.proxy_name + " does not exist. I'll try to create it.."
+            LOGGER.debug(self.proxy_name + " does not exist. I'll try to create it..")
             os.system('grid-proxy-init' + grid_proxy_init_options)
-        print
+
 
     #def get(self):
     #    pass
@@ -283,8 +297,8 @@ class ClientGlobus():
 
         try:
             res = config.get('irods_endpoints', simple_url)
-            print "Found endpoint {0} associated to URL {1}".format(res,
-                                                                     simple_url)
+            LOGGER.info("Found endpoint {0} associated to URL {1}".format(res,
+                                                                     simple_url))
         except ConfigParser.NoOptionError:
             print "Endpoint not found for URL {0}. You can add more endpoints " \
                   "editing the config file 'endpoints.cfg'.".format(

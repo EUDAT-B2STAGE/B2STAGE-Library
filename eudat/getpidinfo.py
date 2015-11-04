@@ -9,6 +9,8 @@ __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
 import json
 import urllib2
+from b2handle.handleclient import EUDATHandleClient
+
 
 
 def get_pid_info(pid, handle_url='hdl.handle.net'):
@@ -68,6 +70,15 @@ def __action_api(host, pid):
 
 def main():
     """ Main function to test the script """
+    client = EUDATHandleClient.instantiate_for_read_access()
+    value = client.get_value_from_handle("11100/33ac01fc-6850-11e5-b66e-e41f13eb32b2", "URL")
+    print value
+
+    result = client.search_handle("irods://data.repo.cineca.it:1247/CINECA01/home/cin_staff/rmucci00/DSI_Test/test.txt")
+    print result
+
+
+
     get_pid_info(pid='11100/0beb6af8-cbe5-11e3-a9da-e41f13eb41b2')
 
 
