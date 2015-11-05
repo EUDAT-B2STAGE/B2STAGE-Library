@@ -1,0 +1,7 @@
+site_name: EUDAT B2STAGE API
+pages:
+- Introduction: index.md
+- Installation: install.md
+- QuickStart: quick.md
+- About: about.md
+theme: journal
