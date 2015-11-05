@@ -1,0 +1,54 @@
+{
+    "docs": [
+        {
+            "location": "/",
+            "text": "B2STAGE-Library\n\n\nIntroduction\n\n\nPython library for interacting with the EUDAT environment\n\n\nThe goal of this library is to provide users with a programmatic access to EUDAT services. Leveraging the former Data Staging Script, it aims at supporting interactions with all EUDAT services ranging from the ingestion of new data sets, the discovery, the retrieval, to the analysis.\n\n\nAlpha warning\n\n\nThis projet is at an early stage of development.\nUse it with caution.",
+            "title": "Introduction"
+        },
+        {
+            "location": "/#b2stage-library",
+            "text": "",
+            "title": "B2STAGE-Library"
+        },
+        {
+            "location": "/#introduction",
+            "text": "Python library for interacting with the EUDAT environment  The goal of this library is to provide users with a programmatic access to EUDAT services. Leveraging the former Data Staging Script, it aims at supporting interactions with all EUDAT services ranging from the ingestion of new data sets, the discovery, the retrieval, to the analysis.",
+            "title": "Introduction"
+        },
+        {
+            "location": "/#alpha-warning",
+            "text": "This projet is at an early stage of development.\nUse it with caution.",
+            "title": "Alpha warning"
+        },
+        {
+            "location": "/install/",
+            "text": "Requirements\n\n\nThis package depends on the following python libraries:\n\n\n\n\nThe \nglobus python api\n for activating and using endpoints.\n\n\nThe \nnose\n test suite.\n\n\n\n\nTo install requirements:\n\n\n$ pip install globusonline-transfer-api-client nose\n\n\n\n\nNote: globusonline-transfer \ndoes not support Python 3",
+            "title": "Installation"
+        },
+        {
+            "location": "/install/#requirements",
+            "text": "This package depends on the following python libraries:   The  globus python api  for activating and using endpoints.  The  nose  test suite.   To install requirements:  $ pip install globusonline-transfer-api-client nose  Note: globusonline-transfer  does not support Python 3",
+            "title": "Requirements"
+        },
+        {
+            "location": "/quick/",
+            "text": "A quick start jump in\n\n\nHere it is a simple usage example:\n\n\nimport eudat\n\ncontext = eudat.AuthUserPass('username', 'password')\n# context = eudat.AuthGSI('path to certificate')\n\nres = context.putHttp('local file')\n# res = context.putGFtp('local file')\n# res = context.putGFtp('source', 'destination')\n\ndatasets = context.find('Searh over meta-data')\n# datasets = context.find('PID')\n\nres = datasets.stage('LOCAL')\n# res = datasets.stage('REMOTE')\n\nana = datasets.analytics('Destination') // create a temporary analytics environment\n\nfiltered_data = ana.filter(lamba a,b: a + b)",
+            "title": "QuickStart"
+        },
+        {
+            "location": "/quick/#a-quick-start-jump-in",
+            "text": "Here it is a simple usage example:  import eudat\n\ncontext = eudat.AuthUserPass('username', 'password')\n# context = eudat.AuthGSI('path to certificate')\n\nres = context.putHttp('local file')\n# res = context.putGFtp('local file')\n# res = context.putGFtp('source', 'destination')\n\ndatasets = context.find('Searh over meta-data')\n# datasets = context.find('PID')\n\nres = datasets.stage('LOCAL')\n# res = datasets.stage('REMOTE')\n\nana = datasets.analytics('Destination') // create a temporary analytics environment\n\nfiltered_data = ana.filter(lamba a,b: a + b)",
+            "title": "A quick start jump in"
+        },
+        {
+            "location": "/about/",
+            "text": "About this project\n\n\nTo be written",
+            "title": "About"
+        },
+        {
+            "location": "/about/#about-this-project",
+            "text": "To be written",
+            "title": "About this project"
+        }
+    ]
+}
