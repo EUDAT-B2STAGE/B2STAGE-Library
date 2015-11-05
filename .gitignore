@@ -1,3 +1,6 @@
+# Mkdocs build
+site
+
 # Sublime projects
 *.sublime*
 

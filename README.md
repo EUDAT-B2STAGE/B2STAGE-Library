@@ -12,43 +12,6 @@ Warning
 -----------
 This projet is at an early stage of development. The API will change and this repository will be obsolete withing a few days
 
+Full documentation available at:
 
-Requirements
------------
-globus python api - https://github.com/globusonline/transfer-api-client-python
-
-Install with ```easy_install globusonline-transfer-api-client```
-
-
-nose - https://nose.readthedocs.org/en/latest/
-
-Install with ```pip install nose```
-
-
-
-
-Usage example
--------------
-```
-import eudat
-
-context = eudat.AuthUserPass('username', 'password')
-# context = eudat.AuthGSI('path to certificate')
-
-res = context.putHttp('local file')
-# res = context.putGFtp('local file')
-# res = context.putGFtp('source', 'destination')
-
-datasets = context.find('Searh over meta-data')
-# datasets = context.find('PID')
-
-res = datasets.stage('LOCAL')
-# res = datasets.stage('REMOTE')
-
-ana = datasets.analytics('Destination') // create a temporary analytics environment
-
-filtered_data = ana.filter(lamba a,b: a + b)
-
-```
-
-
+http://eudat-b2stage.github.io/B2STAGE-Library
