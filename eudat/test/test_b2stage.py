@@ -7,7 +7,7 @@ Test  b2stage.py
 __author__ = 'rmucci00'
 
 from nose.tools import assert_equals
-import eudat.b2stage as b2stage
+from eudat import b2stage
 
 
 def test_globus_login():

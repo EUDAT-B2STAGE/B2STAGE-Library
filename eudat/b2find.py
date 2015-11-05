@@ -116,17 +116,13 @@ def get_dataset_info(ckan_url='eudat-b1.dkrz.de', community='', pattern=[],
     return results
 
 
-def _action(host, data={}):
-    return __action_api(host, 'package_search', data)
-
-
-def __action_api(host, action, data_dict):
+def _action(host, data, action='package_search'):
     # Make the HTTP request for data set generation.
     action_url = "http://{host}/api/3/action/{action}".format(host=host,
                                                               action=action)
 
     try:
-        response = requests.get(action_url, params=data_dict)
+        response = requests.get(action_url, params=data)
     except requests.exceptions.RequestException as e:
         print e.message
         return

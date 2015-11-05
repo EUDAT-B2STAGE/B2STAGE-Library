@@ -6,10 +6,8 @@ Test  b2find.py
 
 __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
-
 from nose.tools import assert_equals
-import eudat.b2find as b2find
-
+from eudat import b2find
 
 
 def test_get_dataset_info_aleph():
