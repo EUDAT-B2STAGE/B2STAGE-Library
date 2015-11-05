@@ -8,19 +8,15 @@ Client to manage Globus activities (endpoint activation, data transfer..)
 __author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
 import os
-import sys
 import ConfigParser
 from urlparse import urlparse
-import time
-from datetime import datetime, timedelta
-
-from baseclient import BaseClient
+import json
 from globusonline.transfer.api_client import TransferAPIClient
 from globusonline.transfer.api_client import x509_proxy
+from globusonline.transfer.api_client.goauth import get_access_token
 from globusonline.transfer.api_client import Transfer
-from globusonline.transfer.api_client import create_client_from_args
-
 import logging
+
 try:  # Python 2.7+
     from logging import NullHandler
 except ImportError:
@@ -33,36 +29,54 @@ LOGGER.addHandler(NullHandler())
 
 
 class ClientGlobus():
-    def __init__(self, auth, http_session=None):
+    def __init__(self, auth=['', ''], resource_file_path=''):
         """
-        Initialize the Globus session: login with username and certificates
+        Initialize the Globus session: login with Globus username and password
+        and path to personal certificates.
+        Credentials can also be passed through a json like this:
 
-        :param auth: a list containing username[0], certfile[1] and keyfile[2]
-        :param http_session:
+        {
+            "globus_username":"",
+            "globus_password":"",
+            "myproxy_username": "",
+            "myproxy_password": "",
+            "PEM_passphrase": ""
+        }
+
+        :param auth: a list containing username[0], password[1], certfile[2]
+        and keyfile[3]
+        :param resource_file_path: path to a json file containing the credentials
         """
-        self.auth = auth
-        if len(self.auth) < 4: #or !self.auth[0] or !self.auth[2] or !self.auth[3]:
-             print "Can not init session: some parameters are missing.."
-        self.auth = auth
-        self.http_session = http_session
-        self.myproxy_username = ''
+
+        # Read resources from file:
+        if resource_file_path and os.path.isfile(resource_file_path):
+            self.globus_init = json.load(open(resource_file_path))
+            if not auth[0]:
+                auth[0] = self.globus_init['globus_username']
+            if not auth[1]:
+                auth[1] = self.globus_init['globus_password']
+
+        if not auth[0] or not auth[1]:
+            print "Can not init session without a username and password.."
+            return
+
         self.api = None
-        if len(self.auth) > 0:
-            self.proxy_name = 'credential-' + self.auth[0] + '.pem'
-
+        self.proxy_name = 'credential-' + auth[0] + '.pem'
         try:
-            self.api = TransferAPIClient(username=self.auth[0],
-                                         cert_file=self.auth[2],
-                                         key_file=self.auth[3])
+            result = get_access_token(username=auth[0], password=auth[1])
+            goauth = result.token
+            self.api = TransferAPIClient(username=auth[0],
+                                         goauth=goauth)
             self.api.set_debug_print(False, False)
-            LOGGER.info("Successfully logged in with Globus online!")
+            LOGGER.info("Successfully logged in with Globus Online!")
         except Exception as e:
-            raise Exception("GSI authentication failed: {0}".format(e))
+            raise Exception(
+                "Globus Online authentication failed: {0}".format(e))
 
     def display_endpoint_list(self):
         code, reason, endpoint_list = self.api.endpoint_list(limit=100)
         LOGGER.info("Found %d endpoints for user %s:" \
-            % (endpoint_list["length"], self.api.username))
+                    % (endpoint_list["length"], self.api.username))
         for ep in endpoint_list["DATA"]:
             self._print_endpoint(ep)
 
@@ -93,27 +107,33 @@ class ClientGlobus():
             else:
                 print
 
-    def endpoint_activation(self, endpoint_name, myproxy_username=''):
+    def endpoint_activation(self, endpoint_name, myproxy_username='',
+                            myproxy_password=''):
         """
-        Activate a GridFTP endpoint
+        Activate a GridFTP endpoint.
+        Myproxy username and password will be used to try the authentication
+        with myproxy: if not passed as parameter, they will retrieved from the
+        globus_online_init.json file or prompted.
+        The passphrase of the user certificate will be prompted if needed to
+        generate an X.509 proxy certificate.
 
         :param endpoint_name: name of the endpoint to activate
-        :param myproxy_username: myproxy user name
+        :param myproxy_username: myproxy user name (optional, if empty end needed
+        it will be prompted)
+        :param myproxy_password: myproxy user password (optional, if empty end
+        needed it will be prompted)
         """
 
-        #code, reason, data = self.api.endpoint(endpoint_name)
-        #self._print_endpoint(data)
-        #self.display_endpoint_list();
-
-        LOGGER.debug("Checking if endpoint {0} is already activated".format(
-             endpoint_name))
+        LOGGER.debug("Checking if endpoint {0} is already activated..".format(
+            endpoint_name))
         _, _, data = self.api.endpoint(endpoint_name)
         if data["activated"]:
-            LOGGER.info("Endpoint {0} is already active!".format(endpoint_name))
+            LOGGER.info(
+                "Endpoint {0} is already active!".format(endpoint_name))
             return True
 
         # Trying with autoactivation
-        LOGGER.debug("Trying autoactivation")
+        LOGGER.debug("Trying autoactivation..")
         code, message, data = self.api.endpoint_autoactivate(
             endpoint_name)
 
@@ -123,14 +143,22 @@ class ClientGlobus():
                                                     data["message"]))
             return True
 
-        LOGGER.debug("Trying activating with myproxy")
+        LOGGER.debug("Trying activating with myproxy..")
+        if not myproxy_username:
+            myproxy_username = self.globus_init['myproxy_username']
+            if not myproxy_username:
+                myproxy_username = raw_input(
+                    "Please insert your \'myproxy\' username:")
+
+        if not myproxy_password:
+            myproxy_password = self.globus_init['myproxy_password']
+            if not myproxy_password:
+                from getpass import getpass
+                myproxy_password = getpass(
+                    'Please insert your \'myproxy\' password:')
 
         data.set_requirement_value("myproxy", "username", myproxy_username)
-
-        # Remove interactive messages: add arguments to manage this part
-        from getpass import getpass
-        passphrase = getpass()
-        data.set_requirement_value("myproxy", "passphrase", passphrase)
+        data.set_requirement_value("myproxy", "passphrase", myproxy_password)
         try:
             status, message, data = self.api.endpoint_activate(endpoint_name,
                                                                data,
@@ -147,16 +175,16 @@ class ClientGlobus():
         self.check_proxy()
         user_credential_path = os.path.join(os.getcwd(), self.proxy_name)
 
-        LOGGER.debug("Trying delegate proxy activation")
+        LOGGER.debug("Trying delegate proxy activation..")
         _, _, reqs = self.api.endpoint_activation_requirements(
             endpoint_name, type="delegate_proxy")
         public_key = reqs.get_requirement_value("delegate_proxy", "public_key")
-        #print public_key
+        # print public_key
 
         proxy = x509_proxy.create_proxy_from_file(user_credential_path,
                                                   public_key, lifetime_hours=3)
 
-        #print proxy
+        # print proxy
         reqs.set_requirement_value("delegate_proxy", "proxy_chain", proxy)
         try:
             code, message, data = self.api.endpoint_activate(endpoint_name,
@@ -195,16 +223,17 @@ class ClientGlobus():
             self.endpoint_activation(dst_endpoint)
 
         # submit a transfer
-        #oldstdout=sys.stdout
-        #sys.stdout = open(os.devnull,'w')
+        # oldstdout=sys.stdout
+        # sys.stdout = open(os.devnull,'w')
         code, message, data = self.api.transfer_submission_id()
-        #sys.stdout = oldstdout # enable output
+        # sys.stdout = oldstdout # enable output
 
         submission_id = data["value"]
-        #deadline = datetime.utcnow() + timedelta(minutes=10)
-        t = Transfer(submission_id, src_endpoint, dst_endpoint)#, deadline)
-        LOGGER.info("Transferring {0} from endpoint {1} to endpoint {2}".format(
-            item, src_endpoint, dst_endpoint))
+        # deadline = datetime.utcnow() + timedelta(minutes=10)
+        t = Transfer(submission_id, src_endpoint, dst_endpoint)  # , deadline)
+        LOGGER.info(
+            "Transferring {0} from endpoint {1} to endpoint {2}".format(
+                item, src_endpoint, dst_endpoint))
         t.add_item(item, os.path.join(dst_dir, os.path.basename(item)))
         code, reason, data = self.api.transfer(t)
         task_id = data["task_id"]
@@ -240,7 +269,7 @@ class ClientGlobus():
                 LOGGER.info("Successful Transfers (src -> dst)")
                 for t in transfer_list:
                     LOGGER.info(" %s -> %s" % (t[u'source_path'],
-                                         t[u'destination_path']))
+                                               t[u'destination_path']))
             except Exception as e:
                 "Error verifying successful transfer: {0}".format(e)
 
@@ -249,28 +278,39 @@ class ClientGlobus():
         a new one."""
 
         grid_proxy_init_options = ' -out ' + self.proxy_name
+        passphrase = self.globus_init['PEM_passphrase']
 
         LOGGER.debug("Checking for a valid proxy")
         if os.path.exists(self.proxy_name):
             LOGGER.debug(self.proxy_name + ' exists..')
             try:
-                ret_val = os.system('grid-proxy-info -exists -f ' + self.proxy_name)
+                ret_val = os.system(
+                    'grid-proxy-info -exists -f ' + self.proxy_name)
                 if ret_val == 0:
                     LOGGER.info("Proxy found!")
                 else:
                     # Remove interactive message: add arguments to manage the
                     # request for GRID pass phrase
-                    LOGGER.debug("Proxy expired. I will try to create a new one..")
+                    LOGGER.debug(
+                        "Proxy expired. I will try to create a new one..")
                     os.system('grid-proxy-init' + grid_proxy_init_options)
             except:
                 print "Proxy invalid. New one, please!"
-                os.system('grid-proxy-init' + grid_proxy_init_options)
+                if passphrase:
+                    os.system('echo ' + passphrase + ' | ' + 'grid-proxy-init'
+                              + ' -pwstdin' + grid_proxy_init_options)
+                else:
+                    os.system('grid-proxy-init' + grid_proxy_init_options)
         else:
-            LOGGER.debug(self.proxy_name + " does not exist. I'll try to create it..")
-            os.system('grid-proxy-init' + grid_proxy_init_options)
+            LOGGER.debug(
+                self.proxy_name + " does not exist. I'll try to create it..")
+            if passphrase:
+                os.system('echo \'' + passphrase + '\' | ' + 'grid-proxy-init'
+                              + ' -pwstdin' +grid_proxy_init_options)
+            else:
+                os.system('grid-proxy-init' + grid_proxy_init_options)
 
-
-    #def get(self):
+    # def get(self):
     #    pass
 
     def get_endpoint_from_url(self, url):
@@ -298,7 +338,7 @@ class ClientGlobus():
         try:
             res = config.get('irods_endpoints', simple_url)
             LOGGER.info("Found endpoint {0} associated to URL {1}".format(res,
-                                                                     simple_url))
+                                                                          simple_url))
         except ConfigParser.NoOptionError:
             print "Endpoint not found for URL {0}. You can add more endpoints " \
                   "editing the config file 'endpoints.cfg'.".format(
@@ -309,9 +349,9 @@ class ClientGlobus():
 
 def main():
     """ Main function to test the script """
-    auth = ['rmucci00', '', '/home/rmucci00/.globus/usercert.pem',
-            '/home/rmucci00/.globus/userkey.pem']
-    globus = ClientGlobus(auth);
+    # auth = ['', '', '/home/rmucci00/.globus/usercert.pem',
+    #        '/home/rmucci00/.globus/userkey.pem']
+    globus = ClientGlobus(resource_file_path='globus_online_init.json');
     globus.display_endpoint_list()
     globus.endpoint_activation('cineca#GALILEO', 'rmucci00')
 
