@@ -11,6 +11,7 @@ import os
 import ConfigParser
 from urlparse import urlparse
 import json
+import time
 from globusonline.transfer.api_client import TransferAPIClient
 from globusonline.transfer.api_client import x509_proxy
 from globusonline.transfer.api_client.goauth import get_access_token
@@ -32,8 +33,7 @@ class ClientGlobus():
     def __init__(self, auth=['', ''], resource_file_path=''):
         """
         Initialize the Globus session: login with Globus username and password
-        and path to personal certificates.
-        Credentials can also be passed through a json like this:
+        Credentials can also be passed through a resource json file like this:
 
         {
             "globus_username":"",
@@ -49,6 +49,7 @@ class ClientGlobus():
         """
 
         # Read resources from file:
+        self.globus_init = None
         if resource_file_path and os.path.isfile(resource_file_path):
             self.globus_init = json.load(open(resource_file_path))
             if not auth[0]:
@@ -70,8 +71,7 @@ class ClientGlobus():
             self.api.set_debug_print(False, False)
             LOGGER.info("Successfully logged in with Globus Online!")
         except Exception as e:
-            raise Exception(
-                "Globus Online authentication failed: {0}".format(e))
+            print "Globus Online authentication failed: {0}".format(e)
 
     def display_endpoint_list(self):
         code, reason, endpoint_list = self.api.endpoint_list(limit=100)
@@ -111,11 +111,16 @@ class ClientGlobus():
                             myproxy_password=''):
         """
         Activate a GridFTP endpoint.
+        Different attempts will be made: autocativation, using myproxy and using
+        a delegate proxy (in the latter case \'grid-proxy-init\' is needed to
+        generate a X.509 proxy).
         Myproxy username and password will be used to try the authentication
-        with myproxy: if not passed as parameter, they will retrieved from the
-        globus_online_init.json file or prompted.
-        The passphrase of the user certificate will be prompted if needed to
-        generate an X.509 proxy certificate.
+        with myproxy: they will be prompted if not passed as parameter or not
+        found in the resource json file.
+        The passphrase of the user certificate (needed for generating an X.509
+        proxy certificate) will be prompted if not found in the resource json
+        file.
+
 
         :param endpoint_name: name of the endpoint to activate
         :param myproxy_username: myproxy user name (optional, if empty end needed
@@ -123,6 +128,11 @@ class ClientGlobus():
         :param myproxy_password: myproxy user password (optional, if empty end
         needed it will be prompted)
         """
+
+        if self.api is None:
+            print "You need to be authenicated with Globus Online to perform " \
+                  "this operation. "
+            return False
 
         LOGGER.debug("Checking if endpoint {0} is already activated..".format(
             endpoint_name))
@@ -144,13 +154,13 @@ class ClientGlobus():
             return True
 
         LOGGER.debug("Trying activating with myproxy..")
-        if not myproxy_username:
+        if not myproxy_username and self.globus_init:
             myproxy_username = self.globus_init['myproxy_username']
-            if not myproxy_username:
+            if not myproxy_username and self.globus_init:
                 myproxy_username = raw_input(
                     "Please insert your \'myproxy\' username:")
 
-        if not myproxy_password:
+        if not myproxy_password and self.globus_init:
             myproxy_password = self.globus_init['myproxy_password']
             if not myproxy_password:
                 from getpass import getpass
@@ -234,13 +244,38 @@ class ClientGlobus():
         LOGGER.info(
             "Transferring {0} from endpoint {1} to endpoint {2}".format(
                 item, src_endpoint, dst_endpoint))
-        t.add_item(item, os.path.join(dst_dir, os.path.basename(item)))
+        # To transfer folder, set recursive to True
+        t.add_item(item, os.path.join(dst_dir, os.path.basename(item)), recursive=True)
         code, reason, data = self.api.transfer(t)
         task_id = data["task_id"]
         self.display_task(task_id)
         return task_id
 
-    def display_tasksummary(self):
+    def wait_for_task(self, task_id, timeout=120, poll_interval=30):
+        """
+        Wait for a task to complete within @timeout seconds, polling every
+        @poll_interval seconds. If the task completed in the timeout,
+        return the status ("SUCCEEDED" or "FAILED"). If it did not complete,
+        returns None. Caller is responsible for cancelling incomplete task
+        as appropriate.
+
+        :return status: SUCCEEDED, FAILED or None
+        """
+        assert timeout % poll_interval == 0, \
+            "Timeout must be multiple of poll_interval"
+        timeout_left = timeout
+        while timeout_left >= 0:
+            code, reason, data = self.api.task(task_id, fields="status")
+            status = data["status"]
+            if status in ("SUCCEEDED", "FAILED"):
+                return status
+            if timeout_left > 0:
+                time.sleep(poll_interval)
+            timeout_left -= poll_interval
+
+        return None
+
+    def display_task_summary(self):
         code, reason, data = self.api.tasksummary()
         LOGGER.info("Task Summary for %s:" % self.api.username)
         for k, v in data.iteritems():
@@ -254,11 +289,18 @@ class ClientGlobus():
         for k, v in data.iteritems():
             if k in ("DATA_TYPE", "LINKS"):
                 continue
-            LOGGER.info(indent + "%s: %s" % (k, v))
+            print indent + "%s: %s" % (k, v)
 
     def display_task(self, task_id, show_successful_transfers=True):
+        """
+        Prints the status of a transfer.
+
+        :param task_id: id of the transfer
+        :param show_successful_transfers:
+        """
+
         code, reason, data = self.api.task(task_id)
-        LOGGER.info("Task %s:" % task_id)
+        print 'Task {0}'.format(task_id)
         self._print_task(data, 0)
 
         if show_successful_transfers:
@@ -266,10 +308,10 @@ class ClientGlobus():
                 code, reason, data = self.api.task_successful_transfers(
                     task_id)
                 transfer_list = data["DATA"]
-                LOGGER.info("Successful Transfers (src -> dst)")
+                print "Successful Transfers (src -> dst)"
                 for t in transfer_list:
-                    LOGGER.info(" %s -> %s" % (t[u'source_path'],
-                                               t[u'destination_path']))
+                    print " %s -> %s" % (t[u'source_path'],
+                                         t[u'destination_path'])
             except Exception as e:
                 "Error verifying successful transfer: {0}".format(e)
 
@@ -278,7 +320,10 @@ class ClientGlobus():
         a new one."""
 
         grid_proxy_init_options = ' -out ' + self.proxy_name
-        passphrase = self.globus_init['PEM_passphrase']
+        passphrase = ''
+
+        if self.globus_init:
+            passphrase = self.globus_init['PEM_passphrase']
 
         LOGGER.debug("Checking for a valid proxy")
         if os.path.exists(self.proxy_name):
