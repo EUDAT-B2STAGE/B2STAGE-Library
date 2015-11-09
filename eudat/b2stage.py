@@ -215,15 +215,17 @@ class ClientGlobus():
                       "\"www.time.is\")"
             return False
 
-    def transfer(self, src_endpoint, dst_endpoint, item, dst_dir):
+    def transfer(self, src_endpoint, dst_endpoint, crs_item, dst_dir, recursive=False):
         """
-        Transfer a file from one endpoint to another. Return the Globus
+        Transfer a file from one endpoint to another and return the Globus
         task_id.
+        Set @recursive to True to transfer a folder.
 
         :param src_endpoint: source endpoint name (i.e. user#endpoint)
         :param dst_endpoint: destination endpoint name (i.e. user#endpoint)
-        :param item: object to be transferred
+        :param crs_item: object to be transferred
         :param dst_dir: destination directory
+        :param recursive: flag to enable folder transfer
         :return: Globus task_id
         """
 
@@ -243,12 +245,13 @@ class ClientGlobus():
         t = Transfer(submission_id, src_endpoint, dst_endpoint)  # , deadline)
         LOGGER.info(
             "Transferring {0} from endpoint {1} to endpoint {2}".format(
-                item, src_endpoint, dst_endpoint))
-        # To transfer folder, set recursive to True
-        t.add_item(item, os.path.join(dst_dir, os.path.basename(item)), recursive=True)
+                crs_item, src_endpoint, dst_endpoint))
+
+
+        t.add_item(crs_item, os.path.join(dst_dir, os.path.basename(crs_item)),
+                   recursive=recursive)
         code, reason, data = self.api.transfer(t)
         task_id = data["task_id"]
-        self.display_task(task_id)
         return task_id
 
     def wait_for_task(self, task_id, timeout=120, poll_interval=30):
@@ -314,6 +317,22 @@ class ClientGlobus():
                                          t[u'destination_path'])
             except Exception as e:
                 "Error verifying successful transfer: {0}".format(e)
+
+    def display_successful_transfer(self, task_id):
+        """
+        Print successful transfers given the task id
+
+        :param task_id:
+        """
+        try:
+            code, reason, data = self.api.task_successful_transfers(
+                    task_id)
+            transfer_list = data["DATA"]
+            print "Successful Transfers (src -> dst)"
+            for t in transfer_list:
+                print " %s -> %s" % (t[u'source_path'], t[u'destination_path'])
+        except Exception as e:
+            "Error verifying successful transfer: {0}".format(e)
 
     def check_proxy(self):
         """  Check for a local x509 prox. If not found or expired it creates
