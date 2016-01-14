@@ -4,7 +4,7 @@
 Test b2stage.py
 """
 
-__author__ = 'rmucci00'
+__author__ = 'Roberto Mucci (r.mucci@cineca.it)'
 
 import os
 import json
@@ -27,7 +27,7 @@ def test_globus_login():
 def test_globus_endpoint_activation():
     """ B2STAGE: Globus online GridFTP endpoint activation """
 
-    globus = b2stage.ClientGlobus(resource_file_path=RESOURCES_FILE);
+    globus = b2stage.ClientGlobus(resource_file_path=RESOURCES_FILE, debug=True);
     result = globus.endpoint_activation(testvalues['dst_endpoint'])
     assert_equals(result, True)
 
@@ -35,7 +35,7 @@ def test_globus_endpoint_activation():
 def test_globus_transfer():
     """ B2STAGE: Globus online folder transfer """
 
-    globus = b2stage.ClientGlobus(resource_file_path=RESOURCES_FILE);
+    globus = b2stage.ClientGlobus(resource_file_path=RESOURCES_FILE, debug=True);
     # src_item must be a folder, since recursive is set to True
     task_id = globus.transfer(testvalues['src_endpoint'],
                               testvalues['dst_endpoint'],
@@ -44,6 +44,7 @@ def test_globus_transfer():
 
     assert task_id is not None
 
-    status = globus.wait_for_task(task_id, timeout=60, poll_interval=10)
+    status = globus.wait_for_task(task_id, timeout=30, poll_interval=10)
+    print 'status = ' + status
     assert_equals(status, "SUCCEEDED")
     globus.display_successful_transfer(task_id)
