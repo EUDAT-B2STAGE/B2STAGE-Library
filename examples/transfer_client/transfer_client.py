@@ -35,7 +35,7 @@ Options:
 import sys
 import os
 import json
-sys.path.append(os.path.abspath("/home/rmucci00/Devel/EUDAT/B2STAGE-Library"))
+sys.path.append(os.path.join(os.path.curdir, "../.."))
 from eudat import b2stage
 from docopt import docopt
 
