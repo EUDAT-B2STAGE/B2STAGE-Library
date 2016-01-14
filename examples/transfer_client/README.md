@@ -22,15 +22,17 @@ Credentials and transfer parameters can be be passed through a json resource_fil
 
 
 Usage:
-  eudat_client.py transfer [options] <resource_file>
-  eudat_client.py transfer [options] <resource_file> <src_endpoint> <dst_endpoint> <src> <dst>
-  eudat_client.py (-h | --help)
-  eudat_client.py --version
+
+        eudat_client.py transfer [options] <resource_file>
+        eudat_client.py transfer [options] <resource_file> <src_endpoint> <dst_endpoint> <src> <dst>
+        eudat_client.py (-h | --help)
+        eudat_client.py --version
   
 
 
 Options:
-  -h --help  Show this screen.
-  --version  Show version.
-  -r         Recursive transfer (needed to transfer folders).
-  -v         Verbose (active debug messages).
+
+        -h --help  Show this screen.
+        --version  Show version.
+        -r         Recursive transfer (needed to transfer folders).
+        -v         Verbose (active debug messages).
