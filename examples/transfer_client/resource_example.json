@@ -1,0 +1,11 @@
+{
+    "globus_username": "",
+    "globus_password": "",
+    "myproxy_username": "",
+    "myproxy_password": "",
+    "PEM_passphrase": "",
+    "src_endpoint": "",
+    "dst_endpoint": "",
+    "src": "",
+    "dst": ""
+}
