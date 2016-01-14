@@ -25,12 +25,14 @@ except ImportError:
         def emit(self, record):
             pass
 
+
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(NullHandler())
 
 
+
 class ClientGlobus():
-    def __init__(self, auth=['', ''], resource_file_path=''):
+    def __init__(self, auth=['', ''], resource_file_path='', debug=False):
         """
         Initialize the Globus session: login with Globus username and password
         Credentials can also be passed through a resource json file like this:
@@ -46,7 +48,15 @@ class ClientGlobus():
         :param auth: a list containing username[0], password[1], certfile[2]
         and keyfile[3]
         :param resource_file_path: path to a json file containing the credentials
+        :param debug: set True to enable debug messages
         """
+
+        if debug:
+            LOGGER.setLevel(logging.DEBUG)
+            ch = logging.StreamHandler()
+            ch.setLevel(logging.DEBUG)
+            LOGGER.addHandler(ch)
+
 
         # Read resources from file:
         self.globus_init = None
@@ -130,7 +140,7 @@ class ClientGlobus():
         """
 
         if self.api is None:
-            print "You need to be authenicated with Globus Online to perform " \
+            print "You need to be authenticated with Globus Online to perform " \
                   "this operation. "
             return False
 
@@ -182,8 +192,11 @@ class ClientGlobus():
             print "Error: {0}".format(e)
 
         # Trying activating a delegate proxy
+        # Verify if there is a workaround not to use grid-proxy-init
+        # (https://github.com/globusonline/transfer-api-client-python/tree/master/mkproxy)
         self.check_proxy()
         user_credential_path = os.path.join(os.getcwd(), self.proxy_name)
+
 
         LOGGER.debug("Trying delegate proxy activation..")
         _, _, reqs = self.api.endpoint_activation_requirements(
@@ -215,7 +228,7 @@ class ClientGlobus():
                       "\"www.time.is\")"
             return False
 
-    def transfer(self, src_endpoint, dst_endpoint, crs_item, dst_dir, recursive=False):
+    def transfer(self, src_endpoint, dst_endpoint, src_item, dst_dir, recursive=False):
         """
         Transfer a file from one endpoint to another and return the Globus
         task_id.
@@ -223,7 +236,7 @@ class ClientGlobus():
 
         :param src_endpoint: source endpoint name (i.e. user#endpoint)
         :param dst_endpoint: destination endpoint name (i.e. user#endpoint)
-        :param crs_item: object to be transferred
+        :param src_item: object to be transferred
         :param dst_dir: destination directory
         :param recursive: flag to enable folder transfer
         :return: Globus task_id
@@ -235,20 +248,15 @@ class ClientGlobus():
             self.endpoint_activation(dst_endpoint)
 
         # submit a transfer
-        # oldstdout=sys.stdout
-        # sys.stdout = open(os.devnull,'w')
         code, message, data = self.api.transfer_submission_id()
-        # sys.stdout = oldstdout # enable output
 
         submission_id = data["value"]
-        # deadline = datetime.utcnow() + timedelta(minutes=10)
         t = Transfer(submission_id, src_endpoint, dst_endpoint)  # , deadline)
         LOGGER.info(
             "Transferring {0} from endpoint {1} to endpoint {2}".format(
-                crs_item, src_endpoint, dst_endpoint))
+                src_item, src_endpoint, dst_endpoint))
 
-
-        t.add_item(crs_item, os.path.join(dst_dir, os.path.basename(crs_item)),
+        t.add_item(src_item, os.path.join(dst_dir, os.path.basename(src_item)),
                    recursive=recursive)
         code, reason, data = self.api.transfer(t)
         task_id = data["task_id"]
@@ -256,23 +264,37 @@ class ClientGlobus():
 
     def wait_for_task(self, task_id, timeout=120, poll_interval=30):
         """
-        Wait for a task to complete within @timeout seconds, polling every
+        Wait for a task to be completed within @timeout seconds, polling every
         @poll_interval seconds. If the task completed in the timeout,
         return the status ("SUCCEEDED" or "FAILED"). If it did not complete,
         returns None. Caller is responsible for cancelling incomplete task
         as appropriate.
+        Set @timeout to 0 to exclude timeout (warning: globus online will try
+        many times to perform the transfer before set it to FAILED)
 
+        :param task_id: id of the started task
+        :param timeout: maximum waiting time (0 to disable timeout)
+        :param poll_interval: interval between status checks
         :return status: SUCCEEDED, FAILED or None
         """
-        assert timeout % poll_interval == 0, \
-            "Timeout must be multiple of poll_interval"
+
+        # If timeout is 0, exits only with SUCCEEDED or FAILED status
+        no_timeout = False
+        if timeout == 0:
+            LOGGER.warning('Timeout disabled!')
+            no_timeout = True
+        else:
+            assert timeout % poll_interval == 0, \
+                "Timeout must be multiple of poll_interval"
         timeout_left = timeout
-        while timeout_left >= 0:
+        while no_timeout or timeout_left >= 0:
             code, reason, data = self.api.task(task_id, fields="status")
             status = data["status"]
+            LOGGER.debug("Checking task {0} status: {1}".format(task_id,
+                                                                status))
             if status in ("SUCCEEDED", "FAILED"):
                 return status
-            if timeout_left > 0:
+            if timeout_left > 0 or no_timeout:
                 time.sleep(poll_interval)
             timeout_left -= poll_interval
 
@@ -416,7 +438,7 @@ def main():
     # auth = ['', '', '/home/rmucci00/.globus/usercert.pem',
     #        '/home/rmucci00/.globus/userkey.pem']
     globus = ClientGlobus(resource_file_path='globus_online_init.json');
-    globus.display_endpoint_list()
+    #globus.display_endpoint_list()
     globus.endpoint_activation('cineca#GALILEO', 'rmucci00')
 
 
