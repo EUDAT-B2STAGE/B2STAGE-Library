@@ -1,4 +1,4 @@
-B2STAGE-Library
+EUDAT-Library
 ===============
 
 Python library for interacting with the EUDAT environment
