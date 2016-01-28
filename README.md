@@ -10,7 +10,7 @@ the discovery, the retrieval, to the analysis.
 
 Warning
 -----------
-This projet is at an early stage of development. The API will change and this repository will be obsolete withing a few days
+This projet is at an early stage of development.  You should expect things not to work yet.
 
 
 Requirements
